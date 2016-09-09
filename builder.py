@@ -7,13 +7,18 @@ word_addr = 0x3ae
 mainloop_safe_spot = 0x818
 
 # RAM addresses
+ep1_buffer = 0x280
 stack_base = 0x443
 timer0_funcptr = 0x39d
 rop_addr = 0x4f0
 
 # LC87 registers
-interrupt_enable = 0xfe08
-debug_port = 0xfe4c
+reg_ie = 0xfe08
+reg_t0cnt = 0xfe10
+reg_t1cnt = 0xfe18
+reg_p3 = 0xfe4c         # Bit0 = test point TP5
+reg_adcrc = 0xfe58
+reg_ep1cnt = 0xfe98
 
 # Code gadgets
 ret = 0x244
@@ -26,7 +31,10 @@ copy_codememR3_ramR2_countR4 = 0x2a30
 stw_r3_ep0ack_ld04_popw_r2_r4_r5_r7_r6 = 0x23ec
 st_r1_ep0ackstall_popw_r2 = 0x1e42
 timer0_disable = 0x29ca
+adc_shutdown = 0xb89
 memcpy_destR2_srcR3_countR4 = 0x29e0
+feb0_loader = 0xb97
+ep1sta_bit3_set = 0x25e1
 
 # Lookup table for finding arbitrary bytes in code memory
 # missing values: 52 D2
@@ -112,10 +120,16 @@ class Ropper:
     def get_stuck(self):
         self.le16(infinite_loop)
 
-    def debug_pulse(self, count=1):
+    def debug_pulse(self, count = 1):
         for i in range(count):
-            self.poke(debug_port, 0)
-            self.poke(debug_port, 1)
+            self.poke(reg_p3, 0)
+            self.poke(reg_p3, 1)
+
+    def ep1_packet(self, bytes):
+        for i in range(len(bytes)):
+            self.poke(ep1_buffer + i, bytes[i])
+        self.poke(reg_ep1cnt, len(bytes));
+        self.le16(ep1sta_bit3_set)
 
 
 def make_slide(entry):
@@ -157,12 +171,44 @@ def make_looper(base_addr, setup_code, body_code):
 
 def setup_func():
     r = Ropper()
-    r.poke(interrupt_enable, 0)
+    r.poke(reg_ie, 0)        # Global IRQ disable (temporary)
+    r.poke(reg_t0cnt, 0)     # Shut off timer 0
+    r.poke(reg_t1cnt, 0)     # Shut off timer 1
+    r.poke(reg_adcrc, 0)     # Shut off ADC
+    r.poke(reg_ie, 0x8C)     # Restore interrupts
     return r.bytes
+
+
+def feb0_test(r):
+    # Undocumented hardware at FEB0h, being used to generate the carrier wave.
+    # Could be something like an SPI engine, or maybe some kind of timer or
+    # radio-ish piece. Register names may not be right; they're from the strings
+    # in the LC87 debugger, no matching documentation to be found.
+
+    write(0x100, [  #   B0h  -> FEB0h_WCON
+        0x00,       # [100h] -> FEB1h_WMOD
+        0x07,       # [101h] -> FEB2h_WCLKG
+        0x4a,       # [102h] -> FEB3h_WSND
+        0x2f,       # [103h] -> FEB4h_WRCV
+        0x7f,       # [104h] -> FEB5h_WWAI
+        0x32,       # [105h] -> FEB6h_WCDLY0
+        0x78,       # [106h] -> FEB8h_WSADRL
+        0x06,       # [107h] -> FEB7h_WCDLY1
+        0x00,       # [108h] -> FEB9h_WSADRH
+        0x78,       # [109h] -> FEBAh_WRADRL
+        0x00,       # [10ah] -> FEBBh_WRADRH
+        0x00,       # [10bh] -> FEBCh_WPMR0
+        0x00,       # [10ch] -> FEBDh_WPMR1
+        0xf0,       # [10dh] -> FEBEh_WPMR2
+        0x00,       # [10eh] -> FEBFh_WPLLC
+    ])              #   F1h  -> FEB0h_WCON
+    r.le16(feb0_loader)
+
 
 def loop_func():
     r = Ropper()
     r.debug_pulse()
+    r.ep1_packet([0x01, 0x80, 0x00, 0xfe, 0x00])
     return r.bytes
 
 
@@ -171,14 +217,6 @@ def write_loop(base_addr, setup_code, body_code):
     looper, entry = make_looper(base_addr, setup_code, body_code)
     write(base_addr, looper)
     write(stack_base, make_slide(entry))
-
-def write_loopback(base_addr, byte):
-    # Working code fragment that returns a byte
-    r = Ropper()
-    r.poke(word_addr, byte)
-    r.le16(mainloop_safe_spot)
-    write(base_addr, r.bytes)
-    write(stack_base, make_slide(base_addr + len(r.bytes) - 1))
 
 def write_reader(base_addr, src_addr):
     # Reads back 2 bytes from RAM
@@ -191,4 +229,4 @@ def write_reader(base_addr, src_addr):
 
 if __name__ == '__main__':
     write_loop(rop_addr, setup_func(), loop_func())
-
+    #write_reader(rop_addr, 0x39d)

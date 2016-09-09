@@ -1,20 +1,27 @@
 #include <unistd.h>
 #include <stdio.h>
+#include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
 #include <hidapi/hidapi.h>
+
+// Currently unused experiment; getting data back via HID works better
+static const bool word_readback = false;
 
 void write_ram(hid_device *handle, uint16_t addr, uint8_t block[16]);
 uint16_t read_word(hid_device *handle);
 void show_device_strings(hid_device *handle);
 hid_device *find_tablet();
+void little_delay();
 
 int main()
 {
 	hid_device *handle = find_tablet();
 	show_device_strings(handle);
 
-	printf("word: %04X\n", read_word(handle));
+	if (word_readback) {
+		printf("word: %04X\n", read_word(handle));
+	}
 
 	char *line = 0;
 	size_t linecap = 0;
@@ -27,14 +34,25 @@ int main()
 			block[i] = strtoul(hexdata, &hexdata, 16);
 		}
 		write_ram(handle, addr, block);
+		little_delay();
 	}
 
-	for (int i = 0; i < 10; i++) {
-		printf("word: %04X\n", read_word(handle));
+	if (word_readback) {
+		for (int i = 0; i < 10; i++) {
+			little_delay();
+			printf("word: %04X\n", read_word(handle));
+		}
 	}
 
 	hid_exit();
 	return 0;
+}
+
+void little_delay()
+{
+	// Device seems to crash if we send these two quick;
+	// not sure whose fault it is yet.
+	usleep(10000);
 }
 
 hid_device *find_tablet()
