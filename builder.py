@@ -128,10 +128,20 @@ class Ropper:
             self.poke(reg_p3, 0)
             self.poke(reg_p3, 1)
 
-    def ep1_packet(self, bytes):
+    def ep1_const(self, bytes):
         for i in range(len(bytes)):
             self.poke(ep1_buffer + i, bytes[i])
-        self.poke(reg_ep1cnt, len(bytes));
+        self.poke(reg_ep1cnt, len(bytes))
+        self.le16(ep1sta_bit3_set)
+
+    def ep1_ram(self, addr, count=64):
+        self.memcpy(ep1_buffer, addr, count)
+        self.poke(reg_ep1cnt, count)
+        self.le16(ep1sta_bit3_set)
+
+    def ep1_codemem(self, addr, count=64):
+        self.copy_from_codemem(ep1_buffer, addr, count)
+        self.poke(reg_ep1cnt, count)
         self.le16(ep1sta_bit3_set)
 
 
@@ -188,21 +198,41 @@ def feb0_test(r):
     # radio-ish piece. Register names may not be right; they're from the strings
     # in the LC87 debugger, no matching documentation to be found.
 
+    # Runtime snapshots of register state
+    #
+    # Output inactive:
+    #   feb0: 89 00 07 4A AF 7F 32 06
+    #   feb8: F0 02 F0 02 FC 03 F1 00
+    #   fec0: 00 38 FF FF FF FF FF FF
+    #   fec8: FF FF FF FF FF FF FF FF
+    #   fed0: 00 00 00 00 00 FF 00 00
+    #   fed8: 00 00 00 00 00 00 00 00
+    #   fee0: 00 FF FF FF FF FF FF FF
+    #
+    # Output active:
+    #   feb0: D9 00 07 4A AF 7F 32 06
+    #   feb8: 70 02 70 02 FC 03 F1 00
+    #   fec0: 00 38 FF FF FF FF FF FF
+    #
+    # Just differences:
+    #   feb0: D9
+    #   feb8: 70    70
+
     write(0x100, [  #   B0h  -> FEB0h_WCON
         0x00,       # [100h] -> FEB1h_WMOD
         0x07,       # [101h] -> FEB2h_WCLKG
         0x4a,       # [102h] -> FEB3h_WSND
-        0x2f,       # [103h] -> FEB4h_WRCV
+        0xaf,       # [103h] -> FEB4h_WRCV
         0x7f,       # [104h] -> FEB5h_WWAI
         0x32,       # [105h] -> FEB6h_WCDLY0
-        0x78,       # [106h] -> FEB8h_WSADRL
+        0x70,       # [106h] -> FEB8h_WSADRL
         0x06,       # [107h] -> FEB7h_WCDLY1
-        0x00,       # [108h] -> FEB9h_WSADRH
-        0x78,       # [109h] -> FEBAh_WRADRL
-        0x00,       # [10ah] -> FEBBh_WRADRH
-        0x00,       # [10bh] -> FEBCh_WPMR0
-        0x00,       # [10ch] -> FEBDh_WPMR1
-        0xf0,       # [10dh] -> FEBEh_WPMR2
+        0x02,       # [108h] -> FEB9h_WSADRH
+        0x70,       # [109h] -> FEBAh_WRADRL
+        0x02,       # [10ah] -> FEBBh_WRADRH
+        0xfc,       # [10bh] -> FEBCh_WPMR0
+        0x03,       # [10ch] -> FEBDh_WPMR1
+        0xf1,       # [10dh] -> FEBEh_WPMR2
         0x00,       # [10eh] -> FEBFh_WPLLC
     ])              #   F1h  -> FEB0h_WCON
     r.le16(feb0_loader)
@@ -211,7 +241,10 @@ def feb0_test(r):
 def loop_func():
     r = Ropper()
     r.debug_pulse()
-    r.ep1_packet([0x01, 0x80, 0x00, 0xfe, 0x00])
+
+    #r.ep1_ram(0xfeb0)
+    feb0_test(r)
+
     return r.bytes
 
 
