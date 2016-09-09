@@ -160,19 +160,17 @@ def setup_func():
 	r.poke(interrupt_enable, 0)
 	return r.bytes
 
-
 def loop_func():
 	r = Ropper()
 	r.debug_pulse()
 	return r.bytes
 
 
-def write_loop(base_addr, body):
+def write_loop(base_addr, setup_code, body_code):
 	# Make a code fragment that runs repeatedly
-	looper, entry = make_looper(base_addr, setup_func(), loop_func())
+	looper, entry = make_looper(base_addr, setup_code, body_code)
 	write(base_addr, looper)
 	write(stack_base, make_slide(entry))
-
 
 def write_loopback(base_addr, byte):
 	# Working code fragment that returns a byte
@@ -181,7 +179,6 @@ def write_loopback(base_addr, byte):
 	r.le16(mainloop_safe_spot)
 	write(base_addr, r.bytes)
 	write(stack_base, make_slide(base_addr + len(r.bytes) - 1))
-
 
 def write_reader(base_addr, src_addr):
 	# Reads back 2 bytes from RAM
@@ -193,6 +190,5 @@ def write_reader(base_addr, src_addr):
 
 
 if __name__ == '__main__':
-	write_loop(rop_addr, loop_func())
-	#write_loopback(rop_addr, 0x94)
-	#write_reader(rop_addr, 0x0201)
+	write_loop(rop_addr, setup_func(), loop_func())
+
