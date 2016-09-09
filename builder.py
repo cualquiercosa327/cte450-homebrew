@@ -1,5 +1,8 @@
 #!/usr/bin/env python
 
+# Values here for firmware version 1.16
+# Version 1.13 has also been observed, with different offsets.
+
 # This should be reading from a var we can try writing
 word_addr = 0x3ae
 
