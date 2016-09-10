@@ -134,14 +134,16 @@ class Ropper:
         self.poke(reg_ep1cnt, len(bytes))
         self.le16(ep1sta_bit3_set)
 
-    def ep1_ram(self, addr, count=64):
-        self.memcpy(ep1_buffer, addr, count)
-        self.poke(reg_ep1cnt, count)
+    def ep1_ram(self, addr):
+        self.poke(ep1_buffer, 0x11)
+        self.memcpy(ep1_buffer + 1, addr, 16)
+        self.poke(reg_ep1cnt, 17)
         self.le16(ep1sta_bit3_set)
 
     def ep1_codemem(self, addr, count=64):
-        self.copy_from_codemem(ep1_buffer, addr, count)
-        self.poke(reg_ep1cnt, count)
+        self.poke(ep1_buffer, 0x11)
+        self.copy_from_codemem(ep1_buffer + 1, addr, 16)
+        self.poke(reg_ep1cnt, 17)
         self.le16(ep1sta_bit3_set)
 
 
@@ -242,8 +244,12 @@ def loop_func():
     r = Ropper()
     r.debug_pulse()
 
+    r.poke(ep1_buffer + 0, 0x01)
+    r.poke(reg_ep1cnt, 5)
+    r.le16(ep1sta_bit3_set)
+
     #r.ep1_ram(0xfeb0)
-    feb0_test(r)
+    #feb0_test(r)
 
     return r.bytes
 
