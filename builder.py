@@ -340,11 +340,13 @@ def loop_func():
     r.ep1_mouse_packet()
 
     # Memory readback experiment
-    r.memcpy_indirect_src(ep1_buffer+3, counter_addr, 2)
+    #r.memcpy_indirect_src(ep1_buffer+3, counter_addr, 2)
 
     # feb0 hardware investigation
-#    r.memcpy(ep1_buffer+1, 0xfeb8, 4)
-#    r.poke(0xfebd, 0x80)
+    #r.memcpy(ep1_buffer+1, 0xfeb8, 4)
+
+    adr = 0xfeb2
+    r.memcpy_indirect_src(adr, counter_addr+1, 1)
 
     return r
 
