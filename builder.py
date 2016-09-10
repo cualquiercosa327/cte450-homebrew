@@ -149,17 +149,18 @@ class Ropper:
         self.le16(copy_codememR3_ramR2_countR4)
 
     def memcpy_indirect_src(self, dest, src_ptr, count):
-        r.le16(popw_r2_r3_r4)
-        r.rel16(-2*6)
-        r.le16(src_ptr)
-        r.le16(2)
-        r.le16(memcpy_destR2_srcR3_countR4)
+        # memcpy a new src into the memcpy below
+        self.le16(popw_r2_r3_r4)
+        self.rel16(-2*6)
+        self.le16(src_ptr)
+        self.le16(2)
+        self.le16(memcpy_destR2_srcR3_countR4)
 
-        r.le16(popw_r2_r3_r4)
-        r.le16(dest)
-        r.le16(0)  # rel target
-        r.le16(count)
-        r.le16(memcpy_destR2_srcR3_countR4)
+        self.le16(popw_r2_r3_r4)
+        self.le16(dest)
+        self.le16(0)  # rel target
+        self.le16(count)
+        self.le16(memcpy_destR2_srcR3_countR4)
 
     def poke(self, dest, byte):
         self.copy_from_codemem(dest, byte_gadgets[byte], 1)
@@ -249,13 +250,6 @@ def make_looper(base_addr, setup_code, body_code):
     return (setup_trampoline + setup_code.link(addr_setup_code) + augmented_body, addr_augbody_orig - 1)
 
 
-def setup_func():
-    r = Ropper()
-    r.set_counter(0)
-    r.irq_disable_tablet()
-    return r
-
-
 def feb0_test(r):
     # Undocumented hardware at FEB0h, being used to generate the carrier wave.
     # Could be something like an SPI engine, or maybe some kind of timer or
@@ -301,12 +295,57 @@ def feb0_test(r):
     ])              #   F1h  -> FEB0h_WCON
     r.le16(feb0_loader)
 
+# SFR 0xfeb0:
+#     Undocumented hardware starting here, something specfic to the 'W' series
+#     LC871 chips, which don't have a public data sheet. Guessing that this is
+#     a one-wire interface with some proprietary Sanyo/ONsemi format; I think
+#     it's the same one used by the TCB87-TypeC debug interface, but here it's
+#     being reused afaict mostly to generate the 750 kHz modulation pulses.
+#     Names here were gleaned from data files included with the toolthain.
+#
+# 7       6       5       4       3       2       1       0       reg
+# ----------------------------------------------------------------------------
+# mode?   flag?   flag?   flag?                           en?     FEB0h_WCON      Control reg
+# (init to 00h)                                                   FEB1h_WMOD      Communication mode?
+# (init to 07h)                                                   FEB2h_WCLKG     Clock gen config?
+# (Write 4Ah at init AND before FEB7&=0F)                         FEB3h_WSND      Send counter?
+# (init to 2Fh)                                                   FEB4h_WRCV
+# (init to 7Fh)                                                   FEB5h_WWAI
+# (init to 32h)                                                   FEB6h_WCDLY0    Delay config?
+# flag?   flag?   flag?   flag?           mode?           mode?   FEB7h_WCDLY1
+# Data word A   (copied from B)                                   FEB8h_WSADRL    Send address/data word?
+# Data word A                                                     FEB9h_WSADRH
+# Data word B   (copied from codemem table)                       FEBAh_WRADRL    Recv address/data word?
+# Data word B                                                     FEBBh_WRADRH
+# (init to 00h near gpio setup, FCh near use)                     FEBCh_WPMR0     Pin mapping registers?
+# (init to 00h near gpio setup, 03h near use)                     FEBDh_WPMR1
+# (init to F0h near gpio setup, F1h near use)                     FEBEh_WPMR2
+# (unused except by factory test support)                         FEBFh_WPLLC     PLL for higher freq?
+#
+
+
+def setup_func():
+    r = Ropper()
+    r.irq_disable_tablet()
+    r.set_counter(0)
+    return r
 
 def loop_func():
     r = Ropper()
+
+    # Counter and pulse for debug sync
     r.debug_pulse()
     r.inc_counter()
+    r.memcpy(ep1_buffer+1, counter_addr, 2)
     r.ep1_mouse_packet()
+
+    # Memory readback experiment
+    r.memcpy_indirect_src(ep1_buffer+3, counter_addr, 2)
+
+    # feb0 hardware investigation
+#    r.memcpy(ep1_buffer+1, 0xfeb8, 4)
+#    r.poke(0xfebd, 0x80)
+
     return r
 
 
@@ -315,7 +354,6 @@ def write_loop(base_addr, setup_code, body_code):
     looper, entry = make_looper(base_addr, setup_code, body_code)
     write(base_addr, looper)
     write(stack_base, make_slide(entry).bytes)
-
 
 if __name__ == '__main__':
     write_loop(rop_addr, setup_func(), loop_func())
