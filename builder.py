@@ -315,7 +315,7 @@ def feb0_test(r):
 #
 # 7       6       5       4       3       2       1       0       reg
 # ----------------------------------------------------------------------------
-# mode?   flag?   flag?   flag?                           en?     FEB0h_WCON      Control reg
+# mode?   ctrl?   flag?   ctrl                    ctrl?   en?     FEB0h_WCON      Control reg
 # (init to 00h)                                                   FEB1h_WMOD      Communication mode?
 # Divisor, 8-bit. Fclk = Fosc / 2 / (1 + N)                       FEB2h_WCLKG     Clock gen config?
 # (Write 4Ah at init AND before FEB7&=0F)                         FEB3h_WSND      Send counter?
@@ -332,7 +332,33 @@ def feb0_test(r):
 # (init to F0h near gpio setup, F1h near use)                     FEBEh_WPMR2
 # (unused except by factory test support)                         FEBFh_WPLLC     PLL for higher freq?
 #
-
+# Pins:
+# ("W" pins seem to be controlled directly by FEB0h hardware)
+#
+#  AN11           Analog cal/setpoint input? (Test point TP8)
+#
+#  PWM0           LEDs
+#  PWM1           LEDs
+#
+#  P00/AN0        Analog integrator input (Test point TP11)
+#  P01         W  Integrator control output (high=reset, low=output)
+#  P02         W  Digital RF input
+#  P03         W  Modulation drive enable, active low
+#  P04         W  Modulation clock output
+#  P07            Input, 10K pull-down on CTE-450 (part of model-select?)
+#
+#  P12            Button SW1, active low
+#  P13            Button SW3, active low
+#  P14            Button SW2, active low
+#  P15            Button SW4, active low
+#
+#  P30            Test point TP5
+#  P31            Test point TP4
+#  P32            Test point TP3
+#
+#  P71            To touch ring sensor
+#  P72            To touch ring sensor
+#
 
 def setup_func():
     r = Ropper()
