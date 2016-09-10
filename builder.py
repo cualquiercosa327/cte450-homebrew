@@ -335,35 +335,31 @@ def feb0_test(r):
 # Pins:
 # ("W" pins seem to be controlled directly by FEB0h hardware)
 #
-#  AN11           Analog cal/setpoint input? (Test point TP8)
-#
-#  PWM0           LEDs
-#  PWM1           LEDs
-#
-#  P00/AN0        Analog integrator input (Test point TP11)
-#  P01         W  Integrator control output (high=reset, low=output)
-#  P02         W  Digital RF input
-#  P03         W  Modulation drive enable, active low
-#  P04         W  Modulation clock output
-#  P07            Input, 10K pull-down on CTE-450 (part of model-select?)
-#
-#  P12            Button SW1, active low
-#  P13            Button SW3, active low
-#  P14            Button SW2, active low
-#  P15            Button SW4, active low
-#
-#  P30            Test point TP5
-#  P31            Test point TP4
-#  P32            Test point TP3
-#
-#  P71            To touch ring sensor
-#  P72            To touch ring sensor
+#     4     AN11           Analog cal/setpoint input? (Test point TP8)
+#     18    PWM0           LEDs
+#     17    PWM1           LEDs
+#     21    P00/AN0        Analog integrator input (Test point TP11)
+#     22    P01         W  Integrator control output (high=reset, low=output)
+#     23    P02         W  Digital RF input
+#     24    P03         W  Modulation drive enable, active low
+#     25    P04         W  Modulation clock output
+#     28    P07            Input, 10K pull-down on CTE-450 (part of model-select?)
+#     11    P12            Button SW1, active low
+#     12    P13            Button SW3, active low
+#     13    P14            Button SW2, active low
+#     14    P15            Button SW4, active low
+#     45    P30            Test point TP5 / DBGP0
+#     44    P31            Test point TP4 / DBGP1
+#     43    P32            Test point TP3 / DBGP2
+#     47    P71            To touch ring sensor
+#     48    P72            To touch ring sensor
 #
 
 def setup_func():
     r = Ropper()
     r.irq_disable_tablet()
     r.set_counter(0)
+    r.set_wclk_freq(125000)
     return r
 
 def loop_func():
@@ -383,8 +379,6 @@ def loop_func():
 
     #adr = 0xfeb2
     #r.memcpy_indirect_src(adr, counter_addr+1, 1)
-
-    r.set_wclk_freq(125000)
 
     return r
 
