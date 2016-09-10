@@ -6,6 +6,9 @@
 # This should be reading from a var we can try writing
 word_addr = 0x3ae
 
+# 12 MHz xtal
+fosc = 12e6
+
 # An okay place to return from the stack smash
 mainloop_safe_spot = 0x818
 
@@ -23,6 +26,7 @@ reg_t1cnt = 0xfe18
 reg_p3 = 0xfe4c         # Bit0 = test point TP5
 reg_adcrc = 0xfe58
 reg_ep1cnt = 0xfe98
+reg_wclkg = 0xfeb2
 
 # Code gadgets
 ret = 0x244
@@ -186,6 +190,12 @@ class Ropper:
         self.poke(ep1_buffer + 0, 1)
         self.ep1_send(5)
 
+    def set_wclk_freq(self, hz):
+        n = int(round((fosc / 2.0 / hz) - 1))
+        assert n >= 0
+        assert n <= 0xff
+        self.poke(reg_wclkg, n)
+
     def set_counter(self, value):
         self.set_r0(value)
         self.le16(r0_to_counter_popw_r2_r3)
@@ -307,7 +317,7 @@ def feb0_test(r):
 # ----------------------------------------------------------------------------
 # mode?   flag?   flag?   flag?                           en?     FEB0h_WCON      Control reg
 # (init to 00h)                                                   FEB1h_WMOD      Communication mode?
-# (init to 07h)                                                   FEB2h_WCLKG     Clock gen config?
+# Divisor, 8-bit. Fclk = Fosc / 2 / (1 + N)                       FEB2h_WCLKG     Clock gen config?
 # (Write 4Ah at init AND before FEB7&=0F)                         FEB3h_WSND      Send counter?
 # (init to 2Fh)                                                   FEB4h_WRCV
 # (init to 7Fh)                                                   FEB5h_WWAI
@@ -345,8 +355,10 @@ def loop_func():
     # feb0 hardware investigation
     #r.memcpy(ep1_buffer+1, 0xfeb8, 4)
 
-    adr = 0xfeb2
-    r.memcpy_indirect_src(adr, counter_addr+1, 1)
+    #adr = 0xfeb2
+    #r.memcpy_indirect_src(adr, counter_addr+1, 1)
+
+    r.set_wclk_freq(125000)
 
     return r
 
