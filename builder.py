@@ -325,41 +325,46 @@ def feb0_test(r):
 # flag?   flag?   flag?   flag?           mode?           mode?   FEB7h_WCDLY1
 # Data word A   (copied from B)                                   FEB8h_WSADRL    Send address/data word?
 # Data word A                                                     FEB9h_WSADRH
-# Data word B   (copied from codemem table)                       FEBAh_WRADRL    Recv address/data word?
+# Data word B   (copied from muxctrl table)                       FEBAh_WRADRL    Recv address/data word?
 # Data word B                                                     FEBBh_WRADRH
 # (init to 00h near gpio setup, FCh near use)                     FEBCh_WPMR0     Pin mapping registers?
 # (init to 00h near gpio setup, 03h near use)                     FEBDh_WPMR1
 # (init to F0h near gpio setup, F1h near use)                     FEBEh_WPMR2
 # (unused except by factory test support)                         FEBFh_WPLLC     PLL for higher freq?
 #
+# The word-wide ports WSADR and WRADR are both set (sometimes by writing twice,
+# others by copying from WRADR to WSADR after writing WRADR) from model-specific
+# tables of multiplexer control values. Marked below as WRS.<bit>
+#
 # Pins:
 # ("W" pins seem to be controlled directly by FEB0h hardware)
 #
-#     4     AN11           Analog cal/setpoint input? (Test point TP8)
-#     18    PWM0           LEDs
-#     17    PWM1           LEDs
-#     21    P00/AN0        Analog integrator input (Test point TP11)
-#     22    P01         W  Integrator control output (high=reset, low=output)
-#     23    P02         W  Digital RF input
-#     24    P03         W  Modulation drive enable, active low
-#     25    P04         W  Modulation clock output
-#     28    P07            Input, 10K pull-down on CTE-450 (part of model-select?)
-#     11    P12            Button SW1, active low
-#     12    P13            Button SW3, active low
-#     13    P14            Button SW2, active low
-#     14    P15            Button SW4, active low
-#     29    P20            Mux enable output, active low
-#     30    P21            Mux enable output, active low
-#     31    P22            Mux enable output, active low
-#     32    P23            Mux enable output, active low
-#     33    P24            Mux select output bit 2
-#     34    P25            Mux select output bit 1
-#     35    P26            Mux select output bit 0
-#     45    P30            Test point TP5 / DBGP0
-#     44    P31            Test point TP4 / DBGP1
-#     43    P32            Test point TP3 / DBGP2
-#     47    P71            To touch ring sensor
-#     48    P72            To touch ring sensor
+#     4     AN11             Analog cal/setpoint input? (Test point TP8)
+#     18    PWM0             LEDs
+#     17    PWM1             LEDs
+#     21    P00/AN0          Analog integrator input (Test point TP11)
+#     22    P01          W   Integrator control output (high=reset, low=output)
+#     23    P02          W   Digital RF input
+#     24    P03          W   Modulation drive enable, active low
+#     25    P04          W   Modulation clock output
+#     28    P07              Input, 10K pull-down on CTE-450 (part of model-select?)
+#     11    P12              Button SW1, active low
+#     12    P13              Button SW3, active low
+#     13    P14              Button SW2, active low
+#     14    P15              Button SW4, active low
+#     29    P20      WRS.9   Mux enable output, active low
+#     30    P21      WRS.8   Mux enable output, active low
+#     31    P22      WRS.7   Mux enable output, active low
+#     32    P23      WRS.6   Mux enable output, active low
+#     33    P24      WRS.5   Mux select output bit 2
+#     34    P25      WRS.4   Mux select output bit 1
+#     35    P26      WRS.3   Mux select output bit 0
+#     36    P27      WRS.2   N/C driven output on this PCB model
+#     45    P30              Test point TP5 / DBGP0
+#     44    P31              Test point TP4 / DBGP1
+#     43    P32              Test point TP3 / DBGP2
+#     47    P71              To touch ring sensor
+#     48    P72              To touch ring sensor
 #
 
 def setup_func():
