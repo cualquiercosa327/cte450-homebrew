@@ -148,6 +148,19 @@ class Ropper:
         self.set_r2_r3_r4(dest, src, count)
         self.le16(copy_codememR3_ramR2_countR4)
 
+    def memcpy_indirect_src(self, dest, src_ptr, count):
+        r.le16(popw_r2_r3_r4)
+        r.rel16(-2*6)
+        r.le16(src_ptr)
+        r.le16(2)
+        r.le16(memcpy_destR2_srcR3_countR4)
+
+        r.le16(popw_r2_r3_r4)
+        r.le16(dest)
+        r.le16(0)  # rel target
+        r.le16(count)
+        r.le16(memcpy_destR2_srcR3_countR4)
+
     def poke(self, dest, byte):
         self.copy_from_codemem(dest, byte_gadgets[byte], 1)
 
@@ -167,6 +180,10 @@ class Ropper:
         for i in range(len(bytes)):
             self.poke(ep1_buffer + i, bytes[i])
         self.ep1_send(len(bytes))
+
+    def ep1_mouse_packet(self):
+        self.poke(ep1_buffer + 0, 1)
+        self.ep1_send(5)
 
     def set_counter(self, value):
         self.set_r0(value)
@@ -289,23 +306,7 @@ def loop_func():
     r = Ropper()
     r.debug_pulse()
     r.inc_counter()
-
-    r.le16(popw_r2_r3_r4)
-    r.rel16(-2*6)
-    r.le16(counter_addr)
-    r.le16(2)
-    r.le16(memcpy_destR2_srcR3_countR4)
-
-    r.le16(popw_r2_r3_r4)
-    r.le16(ep1_buffer + 3)
-    r.le16(0)  # rel target
-    r.le16(2)
-    r.le16(memcpy_destR2_srcR3_countR4)
-
-    r.memcpy(ep1_buffer + 1, counter_addr, 2)
-    r.poke(ep1_buffer + 0, 1)
-    r.ep1_send(5)
-
+    r.ep1_mouse_packet()
     return r
 
 
