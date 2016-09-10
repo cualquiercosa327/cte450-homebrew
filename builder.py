@@ -246,9 +246,9 @@ def loop_func():
     r = Ropper()
     r.debug_pulse()
 
-    r.poke(ep1_buffer + 0, 0x11)
+    r.poke(ep1_buffer + 0, 1)
     r.memcpy(ep1_buffer + 1, 0x200, 4)
-    r.ep1_go(17)
+    r.ep1_go(5)
 
     #r.ep1_ram(0xfeb0)
     #feb0_test(r)
