@@ -14,6 +14,7 @@ ep1_buffer = 0x280
 stack_base = 0x443
 timer0_funcptr = 0x39d
 rop_addr = 0x4f0
+counter_addr = 0x38c
 
 # LC87 registers
 reg_ie = 0xfe08
@@ -39,6 +40,8 @@ adc_shutdown = 0xb89
 memcpy_destR2_srcR3_countR4 = 0x29e0
 feb0_loader = 0xb97
 ep1sta_bit3_set = 0x25e1
+incw_counter_popw_r2_r3_r4 = 0x13c8
+r0_to_counter_popw_r2_r3 = 0xe12
 
 # Lookup table for finding arbitrary bytes in code memory
 # missing values: 52 D2
@@ -88,9 +91,29 @@ def write(addr, bytes):
         bytes = bytes[0x10:]
 
 
+class Reloc:
+    def __init__(self, offset=0, shift=0):
+        self.offset = offset
+        self.shift = shift
+
+    def link(self, base_addr, index):
+        #print "link %d %d %04x %04x" % (self.offset, self.shift, base_addr, index)
+        return 0xff & ((self.offset + base_addr + index) >> self.shift)
+
+
 class Ropper:
     def __init__(self):
         self.bytes = []
+
+    def link(self, base_addr):
+        result = []
+        for i in range(len(self.bytes)):
+            b = self.bytes[i]
+            if isinstance(b, Reloc):
+                result.append(b.link(base_addr, i))
+            else:
+                result.append(int(b))
+        return result
 
     def le16(self, word):
         self.bytes = [word & 0xFF, word >> 8] + self.bytes
@@ -100,9 +123,16 @@ class Ropper:
             self.le16(ret)
             count -= 1
 
+    def rel16(self, offset = 0):
+        self.bytes = [Reloc(offset), Reloc(offset-1, shift=8)] + self.bytes
+
     def jmp(self, sp):
         self.le16(popw_spl_r0)
         self.le16(sp + 2)
+
+    def set_r0(self, r0):
+        self.le16(popw_r0)
+        self.le16(r0)
 
     def set_r2_r3_r4(self, r2, r3, r4):
         self.le16(popw_r2_r3_r4)
@@ -129,24 +159,39 @@ class Ropper:
             self.poke(reg_p3, 0)
             self.poke(reg_p3, 1)
 
-    def ep1_go(self, count):
+    def ep1_send(self, count):
         self.poke(reg_ep1cnt, count)
         self.le16(ep1sta_bit3_set)
 
-    def ep1_const(self, bytes):
+    def ep1_poke(self, bytes):
         for i in range(len(bytes)):
             self.poke(ep1_buffer + i, bytes[i])
-        self.ep1_go(len(bytes))
+        self.ep1_send(len(bytes))
 
-    def ep1_ram(self, addr):
-        self.poke(ep1_buffer, 0x11)
-        self.memcpy(ep1_buffer + 1, addr, 16)
-        self.ep1_go(17)
+    def set_counter(self, value):
+        self.set_r0(value)
+        self.le16(r0_to_counter_popw_r2_r3)
+        self.le16(0)
+        self.le16(0)
 
-    def ep1_codemem(self, addr, count=64):
-        self.poke(ep1_buffer, 0x11)
-        self.copy_from_codemem(ep1_buffer + 1, addr, 16)
-        self.ep1_go(17)
+    def inc_counter(self):
+        self.le16(incw_counter_popw_r2_r3_r4)
+        self.le16(0)
+        self.le16(0)
+        self.le16(0)
+
+    def irq_global_disable(self):   self.poke(reg_ie, 0)
+    def irq_global_restore(self):   self.poke(reg_ie, 0x8C)
+    def irq_disable_timer0(self):   self.poke(reg_t0cnt, 0)
+    def irq_disable_timer1(self):   self.poke(reg_t1cnt, 0)
+    def irq_disable_adc(self):      self.poke(reg_adcrc, 0)
+
+    def irq_disable_tablet(self):
+        self.irq_global_disable()
+        self.irq_disable_timer0()
+        self.irq_disable_timer1()
+        self.irq_disable_adc()
+        self.irq_global_restore()
 
 
 def make_slide(entry):
@@ -154,7 +199,7 @@ def make_slide(entry):
     r.nop(6)
     r.jmp(entry)
     assert len(r.bytes) == 0x10
-    return r.bytes
+    return r
 
 
 def make_looper(base_addr, setup_code, body_code):
@@ -170,30 +215,28 @@ def make_looper(base_addr, setup_code, body_code):
 
     # We'll need to include room for 2 extra trampolines with the body,
     # the one used to restore the setup trampoline, and the setup trampoline itself.
-    augmented_body_size = 2 * trampoline_size + len(body_code)
+    augmented_body_size = 2 * trampoline_size + len(body_code.bytes)
 
     # Now we can lay out the address space
     addr_setup_trampoline = base_addr
     addr_setup_code = addr_setup_trampoline + trampoline_size
-    addr_augbody_orig = addr_setup_code + len(setup_code)
+    addr_augbody_orig = addr_setup_code + len(setup_code.bytes)
     addr_augbody_copy = addr_augbody_orig + augmented_body_size
+    body_copy_baseaddr = addr_augbody_copy + 2 * trampoline_size
 
     setup_trampoline = trampoline(addr_augbody_copy, addr_augbody_orig, augmented_body_size)
     restore_trampoline = trampoline(addr_setup_trampoline, addr_augbody_orig, trampoline_size)
 
-    augmented_body = setup_trampoline + restore_trampoline + body_code
+    augmented_body = setup_trampoline + restore_trampoline + body_code.link(body_copy_baseaddr)
     assert len(augmented_body) == augmented_body_size
-    return (setup_trampoline + setup_code + augmented_body, addr_augbody_orig - 1)
+    return (setup_trampoline + setup_code.link(addr_setup_code) + augmented_body, addr_augbody_orig - 1)
 
 
 def setup_func():
     r = Ropper()
-    r.poke(reg_ie, 0)        # Global IRQ disable (temporary)
-    r.poke(reg_t0cnt, 0)     # Shut off timer 0
-    r.poke(reg_t1cnt, 0)     # Shut off timer 1
-    r.poke(reg_adcrc, 0)     # Shut off ADC
-    r.poke(reg_ie, 0x8C)     # Restore interrupts
-    return r.bytes
+    r.set_counter(0)
+    r.irq_disable_tablet()
+    return r
 
 
 def feb0_test(r):
@@ -245,32 +288,34 @@ def feb0_test(r):
 def loop_func():
     r = Ropper()
     r.debug_pulse()
+    r.inc_counter()
 
+    r.le16(popw_r2_r3_r4)
+    r.rel16(-2*6)
+    r.le16(counter_addr)
+    r.le16(2)
+    r.le16(memcpy_destR2_srcR3_countR4)
+
+    r.le16(popw_r2_r3_r4)
+    r.le16(ep1_buffer + 3)
+    r.le16(0)  # rel target
+    r.le16(2)
+    r.le16(memcpy_destR2_srcR3_countR4)
+
+    r.memcpy(ep1_buffer + 1, counter_addr, 2)
     r.poke(ep1_buffer + 0, 1)
-    r.memcpy(ep1_buffer + 1, 0x200, 4)
-    r.ep1_go(5)
+    r.ep1_send(5)
 
-    #r.ep1_ram(0xfeb0)
-    #feb0_test(r)
-
-    return r.bytes
+    return r
 
 
 def write_loop(base_addr, setup_code, body_code):
     # Make a code fragment that runs repeatedly
     looper, entry = make_looper(base_addr, setup_code, body_code)
     write(base_addr, looper)
-    write(stack_base, make_slide(entry))
-
-def write_reader(base_addr, src_addr):
-    # Reads back 2 bytes from RAM
-    r = Ropper()
-    r.memcpy(word_addr, src_addr, 2)
-    r.le16(mainloop_safe_spot)
-    write(base_addr, r.bytes)
-    write(stack_base, make_slide(base_addr + len(r.bytes) - 1))
+    write(stack_base, make_slide(entry).bytes)
 
 
 if __name__ == '__main__':
     write_loop(rop_addr, setup_func(), loop_func())
-    #write_reader(rop_addr, 0x39d)
+
