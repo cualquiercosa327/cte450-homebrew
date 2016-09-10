@@ -4,7 +4,7 @@ const HID = require('node-hid');
 const readline = require('readline');
 const rl = readline.createInterface({input: process.stdin});
 const dev = new HID.HID(0x56a, 0x17)
-var error_limit = 100;
+var error_limit = 10;
 
 rl.on('line', (input) => {
 	const tokens = input.split(' ');
