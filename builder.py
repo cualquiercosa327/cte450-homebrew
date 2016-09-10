@@ -28,6 +28,7 @@ ret = 0x244
 infinite_loop = 0x1ac
 ldw_spl_popw_r0 = 0x26f1
 popw_spl_r0 = 0x7d6
+popw_r0 = 0x2a2c
 popw_r3 = 0xe1b
 popw_r2_r3_r4 = 0x013cb
 copy_codememR3_ramR2_countR4 = 0x2a30
@@ -128,23 +129,24 @@ class Ropper:
             self.poke(reg_p3, 0)
             self.poke(reg_p3, 1)
 
+    def ep1_go(self, count):
+        self.poke(reg_ep1cnt, count)
+        self.le16(ep1sta_bit3_set)
+
     def ep1_const(self, bytes):
         for i in range(len(bytes)):
             self.poke(ep1_buffer + i, bytes[i])
-        self.poke(reg_ep1cnt, len(bytes))
-        self.le16(ep1sta_bit3_set)
+        self.ep1_go(len(bytes))
 
     def ep1_ram(self, addr):
         self.poke(ep1_buffer, 0x11)
         self.memcpy(ep1_buffer + 1, addr, 16)
-        self.poke(reg_ep1cnt, 17)
-        self.le16(ep1sta_bit3_set)
+        self.ep1_go(17)
 
     def ep1_codemem(self, addr, count=64):
         self.poke(ep1_buffer, 0x11)
         self.copy_from_codemem(ep1_buffer + 1, addr, 16)
-        self.poke(reg_ep1cnt, 17)
-        self.le16(ep1sta_bit3_set)
+        self.ep1_go(17)
 
 
 def make_slide(entry):
@@ -244,9 +246,9 @@ def loop_func():
     r = Ropper()
     r.debug_pulse()
 
-    r.poke(ep1_buffer + 0, 0x01)
-    r.poke(reg_ep1cnt, 5)
-    r.le16(ep1sta_bit3_set)
+    r.poke(ep1_buffer + 0, 0x11)
+    r.memcpy(ep1_buffer + 1, 0x200, 4)
+    r.ep1_go(17)
 
     #r.ep1_ram(0xfeb0)
     #feb0_test(r)
