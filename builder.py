@@ -348,6 +348,13 @@ def feb0_test(r):
 #     12    P13            Button SW3, active low
 #     13    P14            Button SW2, active low
 #     14    P15            Button SW4, active low
+#     29    P20            Mux enable output, active low
+#     30    P21            Mux enable output, active low
+#     31    P22            Mux enable output, active low
+#     32    P23            Mux enable output, active low
+#     33    P24            Mux select output bit 2
+#     34    P25            Mux select output bit 1
+#     35    P26            Mux select output bit 0
 #     45    P30            Test point TP5 / DBGP0
 #     44    P31            Test point TP4 / DBGP1
 #     43    P32            Test point TP3 / DBGP2
