@@ -333,7 +333,7 @@ def feb0_loader_test(r):
 #     2     /RES             TP10   Reset RC circuit
 #     3     AN10                    10k pull-down resistor
 #     4     AN11             TP8    Touch ring analog input
-#     5     VSS
+#     5     VSS              TP15
 #     6     XTAL                    12 MHz xtal
 #     7     XTAL
 #     8     VDD
@@ -341,6 +341,7 @@ def feb0_loader_test(r):
 #     10    P11                     Power control
 #     11    P12                     Button SW1, active low
 #     12    P13                     Button SW3, active low
+#
 #     13    P14                     Button SW2, active low
 #     14    P15                     Button SW4, active low
 #     15    P16                     10k pull-down resistor
@@ -353,6 +354,7 @@ def feb0_loader_test(r):
 #     22    P01          W          Integrator control output (high=reset, low=output)
 #     23    P02          W          Digital RF input
 #     24    P03          W          Modulation drive enable, active low
+#
 #     25    P04          W          Modulation clock output
 #     26    P05                     N/C
 #     27    P06                     N/C
@@ -365,6 +367,7 @@ def feb0_loader_test(r):
 #     34    P25      WRS.4          Mux select output bit 1
 #     35    P26      WRS.3          Mux select output bit 0
 #     36    P27      WRS.2          N/C, driven output on this PCB model
+#
 #     37    D-                      USB Data
 #     38    D+
 #     39    VDD
