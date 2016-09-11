@@ -260,32 +260,8 @@ def make_looper(base_addr, setup_code, body_code):
     return (setup_trampoline + setup_code.link(addr_setup_code) + augmented_body, addr_augbody_orig - 1)
 
 
-def feb0_test(r):
-    # Undocumented hardware at FEB0h, being used to generate the carrier wave.
-    # Could be something like an SPI engine, or maybe some kind of timer or
-    # radio-ish piece. Register names may not be right; they're from the strings
-    # in the LC87 debugger, no matching documentation to be found.
-
-    # Runtime snapshots of register state
-    #
-    # Output inactive:
-    #   feb0: 89 00 07 4A AF 7F 32 06
-    #   feb8: F0 02 F0 02 FC 03 F1 00
-    #   fec0: 00 38 FF FF FF FF FF FF
-    #   fec8: FF FF FF FF FF FF FF FF
-    #   fed0: 00 00 00 00 00 FF 00 00
-    #   fed8: 00 00 00 00 00 00 00 00
-    #   fee0: 00 FF FF FF FF FF FF FF
-    #
-    # Output active:
-    #   feb0: D9 00 07 4A AF 7F 32 06
-    #   feb8: 70 02 70 02 FC 03 F1 00
-    #   fec0: 00 38 FF FF FF FF FF FF
-    #
-    # Just differences:
-    #   feb0: D9
-    #   feb8: 70    70
-
+def feb0_loader_test(r):
+    # Code fragment intended for factory test maybe?
     write(0x100, [  #   B0h  -> FEB0h_WCON
         0x00,       # [100h] -> FEB1h_WMOD
         0x07,       # [101h] -> FEB2h_WCLKG
@@ -315,21 +291,35 @@ def feb0_test(r):
 #
 # 7       6       5       4       3       2       1       0       reg
 # ----------------------------------------------------------------------------
+#
 # mode?   ctrl?   flag?   ctrl                    ctrl?   en?     FEB0h_WCON      Control reg
+#
+#    1001 0000   90h before scan go
+#    1101 0001   D1h after scan go
+#    1011 0000   B0h before scan reading
+#                  en/dis cycle:   set 4, set 6  OR  clr 1
+#                  adc-adjacent:  set 4 -> delay -> set 6  OR clr 7
+#
 # (init to 00h)                                                   FEB1h_WMOD      Communication mode?
 # Divisor, 8-bit. Fclk = Fosc / 2 / (1 + N)                       FEB2h_WCLKG     Clock gen config?
-# (Write 4Ah at init AND before FEB7&=0F)                         FEB3h_WSND      Send counter?
+#
+# (Write 4Ah at init AND before each scan)                        FEB3h_WSND      Send counter?
+#
 # (init to 2Fh)                                                   FEB4h_WRCV
 # (init to 7Fh)                                                   FEB5h_WWAI
 # (init to 32h)                                                   FEB6h_WCDLY0    Delay config?
-# flag?   flag?   flag?   flag?           mode?           mode?   FEB7h_WCDLY1
+#
+# ack?    flag?   flag?   flag?           mode?           mode?   FEB7h_WCDLY1
+#
 # Data word A   (copied from B)                                   FEB8h_WSADRL    Send address/data word?
 # Data word A                                                     FEB9h_WSADRH
 # Data word B   (copied from muxctrl table)                       FEBAh_WRADRL    Recv address/data word?
 # Data word B                                                     FEBBh_WRADRH
+#
 # (init to 00h near gpio setup, FCh near use)                     FEBCh_WPMR0     Pin mapping registers?
 # (init to 00h near gpio setup, 03h near use)                     FEBDh_WPMR1
 # (init to F0h near gpio setup, F1h near use)                     FEBEh_WPMR2
+#
 # (unused except by factory test support)                         FEBFh_WPLLC     PLL for higher freq?
 #
 # The word-wide ports WSADR and WRADR are both set (sometimes by writing twice,
@@ -391,6 +381,36 @@ def loop_func():
 
     #adr = 0xfeb2
     #r.memcpy_indirect_src(adr, counter_addr+1, 1)
+
+    r.poke(0xfeb3, 0x4a)
+
+    # Load new parallel output mapped to muxes
+    r.memcpy(0xfeba, counter_addr, 2)
+    r.memcpy(0xfeb8, 0xfeba, 2)
+
+    # strobe?! (reduce this)
+    r.poke(0xfeb0, 0x90)
+    r.poke(0xfeb0, 0xb1)
+    r.poke(0xfeb0, 0xc1)
+    r.poke(0xfeb0, 0xd0)
+    r.poke(0xfeb0, 0xe0)
+
+    # Clear parallel output
+    r.poke(0xfeba, 0)
+    r.poke(0xfebb, 0)
+    r.memcpy(0xfeb8, 0xfeba, 2)
+
+    # strobe?! (reduce this)
+    r.poke(0xfeb0, 0x90)
+    r.poke(0xfeb0, 0xb1)
+    r.poke(0xfeb0, 0xc1)
+    r.poke(0xfeb0, 0xd0)
+    r.poke(0xfeb0, 0xe0)
+
+    #r.poke(0xfeb7, 0x06)
+    #r.poke(0xfeb7, 0x86)
+    #r.poke(0xfeb7, 0x06)
+    #r.poke(0xfeb7, 0x86)
 
     return r
 
