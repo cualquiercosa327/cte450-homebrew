@@ -301,7 +301,8 @@ def feb0_loader_test(r):
 #                  adc-adjacent:  set 4 -> delay -> set 6  OR clr 7
 #
 # (init to 00h)                                                   FEB1h_WMOD      Communication mode?
-# Divisor, 8-bit. Fclk = Fosc / 2 / (1 + N)                       FEB2h_WCLKG     Clock gen config?
+#
+# Divisor, 8-bit. Fclk = Fosc / 2 / (1 + N)                       FEB2h_WCLKG     Clock gen config
 #
 # (Write 4Ah at init AND before each scan)                        FEB3h_WSND      Send counter?
 #
@@ -311,12 +312,12 @@ def feb0_loader_test(r):
 #
 # ack?    flag?   flag?   flag?           mode?           mode?   FEB7h_WCDLY1
 #
-# Data word A   (copied from B)                                   FEB8h_WSADRL    Send address/data word?
+# Data word A   (copied from B)                                   FEB8h_WSADRL    Parallel data word
 # Data word A                                                     FEB9h_WSADRH
-# Data word B   (copied from muxctrl table)                       FEBAh_WRADRL    Recv address/data word?
+# Data word B   (copied from muxctrl table)                       FEBAh_WRADRL    Parallel data word
 # Data word B                                                     FEBBh_WRADRH
 #
-# (init to 00h near gpio setup, FCh near use)                     FEBCh_WPMR0     Pin mapping registers?
+# (init to 00h near gpio setup, FCh near use)                     FEBCh_WPMR0     Serial data word?
 # (init to 00h near gpio setup, 03h near use)                     FEBDh_WPMR1
 # (init to F0h near gpio setup, F1h near use)                     FEBEh_WPMR2
 #
