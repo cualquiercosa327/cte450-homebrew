@@ -329,33 +329,54 @@ def feb0_loader_test(r):
 # Pins:
 # ("W" pins seem to be controlled directly by FEB0h hardware)
 #
-#     18    PWM0             LEDs
-#     17    PWM1             LEDs
-#     21    P00/AN0          Analog integrator input (Test point TP11)
-#     22    P01          W   Integrator control output (high=reset, low=output)
-#     23    P02          W   Digital RF input
-#     24    P03          W   Modulation drive enable, active low
-#     25    P04          W   Modulation clock output
-#     28    P07              Input, 10K pull-down on CTE-450 (part of model-select?)
-#     11    P12              Button SW1, active low
-#     12    P13              Button SW3, active low
-#     13    P14              Button SW2, active low
-#     14    P15              Button SW4, active low
-#     29    P20      WRS.9   Mux enable output, active low
-#     30    P21      WRS.8   Mux enable output, active low
-#     31    P22      WRS.7   Mux enable output, active low
-#     32    P23      WRS.6   Mux enable output, active low
-#     33    P24      WRS.5   Mux select output bit 2
-#     34    P25      WRS.4   Mux select output bit 1
-#     35    P26      WRS.3   Mux select output bit 0
-#     36    P27      WRS.2   N/C driven output on this PCB model
-#     45    P30              Test point TP5 / DBGP0
-#     44    P31              Test point TP4 / DBGP1
-#     43    P32              Test point TP3 / DBGP2
-#     47    P71              Touch ring drive output
-#     48    P72              Touch ring drive output
-#     1     P73              Touch ring drive output
-#     4     AN11             Touch ring analog input (Test point TP8)
+#     1     P73                     Touch ring drive output
+#     2     /RES             TP10   Reset RC circuit
+#     3     AN10                    10k pull-down resistor
+#     4     AN11             TP8    Touch ring analog input
+#     5     VSS
+#     6     XTAL                    12 MHz xtal
+#     7     XTAL
+#     8     VDD
+#     9     P10                     N/C
+#     10    P11                     Power control
+#     11    P12                     Button SW1, active low
+#     12    P13                     Button SW3, active low
+#     13    P14                     Button SW2, active low
+#     14    P15                     Button SW4, active low
+#     15    P16                     10k pull-down resistor
+#     16    P17                     N/C
+#     17    PWM1                    LEDs
+#     18    PWM0                    LEDs
+#     19    VDD
+#     20    VSS
+#     21    AN0              TP11   Analog integrator input
+#     22    P01          W          Integrator control output (high=reset, low=output)
+#     23    P02          W          Digital RF input
+#     24    P03          W          Modulation drive enable, active low
+#     25    P04          W          Modulation clock output
+#     26    P05                     N/C
+#     27    P06                     N/C
+#     28    P07                     Input, 10K pull-down on CTE-450 (part of model-select?)
+#     29    P20      WRS.9          Mux enable output 3, active low
+#     30    P21      WRS.8          Mux enable output 2, active low
+#     31    P22      WRS.7          Mux enable output 1, active low
+#     32    P23      WRS.6          Mux enable output 0, active low
+#     33    P24      WRS.5          Mux select output bit 2
+#     34    P25      WRS.4          Mux select output bit 1
+#     35    P26      WRS.3          Mux select output bit 0
+#     36    P27      WRS.2          N/C, driven output on this PCB model
+#     37    D-                      USB Data
+#     38    D+
+#     39    VDD
+#     40    VSS
+#     41    UFILT                   USB Filter
+#     42    P33                     N/C
+#     43    P32              TP3    DBGP2
+#     44    P31              TP4    DBGP1
+#     45    P30              TP5    DBGP0 / Test sync out
+#     46    DPUP                    USB Pull-up
+#     47    P71                     Touch ring drive output
+#     48    P72                     Touch ring drive output
 #
 
 def setup_func():
