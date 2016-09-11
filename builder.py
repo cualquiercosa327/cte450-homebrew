@@ -370,6 +370,9 @@ def loop_func():
     # Counter and pulse for debug sync
     r.debug_pulse()
     r.inc_counter()
+    r.inc_counter()
+    r.inc_counter()
+    r.inc_counter()
     r.memcpy(ep1_buffer+1, counter_addr, 2)
     r.ep1_mouse_packet()
 
@@ -388,29 +391,18 @@ def loop_func():
     r.memcpy(0xfeba, counter_addr, 2)
     r.memcpy(0xfeb8, 0xfeba, 2)
 
-    # strobe?! (reduce this)
+    # strobe?!
     r.poke(0xfeb0, 0x90)
-    r.poke(0xfeb0, 0xb1)
     r.poke(0xfeb0, 0xc1)
-    r.poke(0xfeb0, 0xd0)
-    r.poke(0xfeb0, 0xe0)
 
     # Clear parallel output
     r.poke(0xfeba, 0)
     r.poke(0xfebb, 0)
     r.memcpy(0xfeb8, 0xfeba, 2)
 
-    # strobe?! (reduce this)
+    # strobe?!
     r.poke(0xfeb0, 0x90)
-    r.poke(0xfeb0, 0xb1)
     r.poke(0xfeb0, 0xc1)
-    r.poke(0xfeb0, 0xd0)
-    r.poke(0xfeb0, 0xe0)
-
-    #r.poke(0xfeb7, 0x06)
-    #r.poke(0xfeb7, 0x86)
-    #r.poke(0xfeb7, 0x06)
-    #r.poke(0xfeb7, 0x86)
 
     return r
 
