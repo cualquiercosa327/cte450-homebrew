@@ -346,19 +346,19 @@ def feb0_loader_test(r):
 #     13    P14                     Button SW2, active low
 #     14    P15                     Button SW4, active low
 #     15    P16                     10k pull-down resistor
-#     16    P17                     N/C
+#     16    P17                     N/C, unused driven output
 #     17    PWM1                    LEDs
 #     18    PWM0                    LEDs
 #     19    VDD
 #     20    VSS
 #     21    AN0              TP11   Analog integrator input
-#     22    P01          W          Integrator control output (high=reset, low=output)
-#     23    P02          W          Digital RF input
-#     24    P03          W          Modulation drive enable, active low
+#     22    P01          W          Integrator reset: when high, integrator quickly falls to zero
+#     23    P02          W          -V charge pump output (CLK/2, phase shifted, gated)
+#     24    P03          W          Enable integrator gate & modulation drive, active high
 #
-#     25    P04          W          Modulation clock output
-#     26    P05                     N/C
-#     27    P06                     N/C
+#     25    P04          W          Modulation clock output (usually 750 kHz when active)
+#     26    P05                     N/C, unused driven output
+#     27    P06                     N/C, unused driven output
 #     28    P07                     Input, 10K pull-down on CTE-450 (part of model-select?)
 #     29    P20      WRS.9          Mux enable output 3, active low
 #     30    P21      WRS.8          Mux enable output 2, active low
@@ -367,16 +367,16 @@ def feb0_loader_test(r):
 #     33    P24      WRS.5          Mux select output bit 2
 #     34    P25      WRS.4          Mux select output bit 1
 #     35    P26      WRS.3          Mux select output bit 0
-#     36    P27      WRS.2          N/C, driven output on this PCB model
+#     36    P27      WRS.2          N/C, weakly driven output?
 #
 #     37    D-                      USB Data
 #     38    D+
 #     39    VDD
 #     40    VSS
 #     41    UFILT                   USB Filter
-#     42    P33                     N/C
-#     43    P32              TP3    DBGP2
-#     44    P31              TP4    DBGP1
+#     42    P33                     N/C, unused driven output
+#     43    P32              TP3    DBGP2, unused driven output
+#     44    P31              TP4    DBGP1, unused driven output
 #     45    P30              TP5    DBGP0 / Test sync out
 #     46    DPUP                    USB Pull-up
 #     47    P71                     Touch ring drive output
