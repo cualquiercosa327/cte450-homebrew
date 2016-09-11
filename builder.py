@@ -329,7 +329,6 @@ def feb0_loader_test(r):
 # Pins:
 # ("W" pins seem to be controlled directly by FEB0h hardware)
 #
-#     4     AN11             Analog cal/setpoint input? (Test point TP8)
 #     18    PWM0             LEDs
 #     17    PWM1             LEDs
 #     21    P00/AN0          Analog integrator input (Test point TP11)
@@ -353,8 +352,10 @@ def feb0_loader_test(r):
 #     45    P30              Test point TP5 / DBGP0
 #     44    P31              Test point TP4 / DBGP1
 #     43    P32              Test point TP3 / DBGP2
-#     47    P71              To touch ring sensor
-#     48    P72              To touch ring sensor
+#     47    P71              Touch ring drive output
+#     48    P72              Touch ring drive output
+#     1     P73              Touch ring drive output
+#     4     AN11             Touch ring analog input (Test point TP8)
 #
 
 def setup_func():
@@ -388,12 +389,15 @@ def loop_func():
     r.poke(0xfeb3, 0x4a)
 
     # Load new parallel output mapped to muxes
+    # Crudely scans through mux states...
     r.memcpy(0xfeba, counter_addr, 2)
     r.memcpy(0xfeb8, 0xfeba, 2)
 
     # strobe?!
     r.poke(0xfeb0, 0x90)
     r.poke(0xfeb0, 0xc1)
+
+    r.poke(0xfeb0, 0xd1)   # Sets output (integrator ctrl) as open-collector
 
     # Clear parallel output
     r.poke(0xfeba, 0)
