@@ -360,9 +360,10 @@ def feb0_loader_test(r):
 
 def setup_func():
     r = Ropper()
-    r.irq_disable_tablet()
-    r.set_counter(0)
+    #r.irq_disable_tablet()
+    #r.set_counter(0)
     r.set_wclk_freq(125000)
+    r.le16(mainloop_safe_spot)
     return r
 
 def loop_func():
@@ -388,6 +389,10 @@ def loop_func():
 
     r.poke(0xfeb3, 0x4a)
 
+    #muxstate = (1<<9) | (1<<8) | (1<<7) | (1<<6) | (0<<3)
+    #r.poke(0xfeba, muxstate & 0xFF)
+    #r.poke(0xfebb, muxstate >> 8)
+
     # Load new parallel output mapped to muxes
     # Crudely scans through mux states...
     r.memcpy(0xfeba, counter_addr, 2)
@@ -399,14 +404,14 @@ def loop_func():
 
     r.poke(0xfeb0, 0xd1)   # Sets output (integrator ctrl) as open-collector
 
-    # Clear parallel output
-    r.poke(0xfeba, 0)
-    r.poke(0xfebb, 0)
-    r.memcpy(0xfeb8, 0xfeba, 2)
+    # # Clear parallel output
+    # r.poke(0xfeba, 0)
+    # r.poke(0xfebb, 0)
+    # r.memcpy(0xfeb8, 0xfeba, 2)
 
-    # strobe?!
-    r.poke(0xfeb0, 0x90)
-    r.poke(0xfeb0, 0xc1)
+    # # strobe?!
+    # r.poke(0xfeb0, 0x90)
+    # r.poke(0xfeb0, 0xc1)
 
     return r
 
