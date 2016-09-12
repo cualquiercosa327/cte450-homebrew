@@ -166,6 +166,13 @@ class Ropper:
         self.le16(count)
         self.le16(memcpy_destR2_srcR3_countR4)
 
+    def delay(self, millisec):
+        # memcpy is pretty slow, try to do a nop with it
+        v = int(round(102 * millisec))
+        if v > 0:
+            assert v < 0x3000
+            self.memcpy(0xc000, 0xc000, v)
+
     def poke(self, dest, byte):
         self.copy_from_codemem(dest, byte_gadgets[byte], 1)
 
@@ -220,6 +227,11 @@ class Ropper:
         self.irq_disable_timer1()
         self.irq_disable_adc()
         self.irq_global_restore()
+
+    def set_mux_latches(self, word):
+        self.poke(0xfeba, word & 0xFF)
+        self.poke(0xfebb, word >> 8)
+        self.memcpy(0xfeb8, 0xfeba, 2)
 
 
 def make_slide(entry):
@@ -292,32 +304,32 @@ def feb0_loader_test(r):
 # 7       6       5       4       3       2       1       0       reg
 # ----------------------------------------------------------------------------
 #
-# mode?   ctrl?   flag?   ctrl                    ctrl?   en?     FEB0h_WCON      Control reg
+# EN      GO      REP1    CHGP                    ctrl?   REP2    FEB0h_WCON      Control reg
 #
-#    1001 0000   90h before scan go
-#    1101 0001   D1h after scan go
-#    1011 0000   B0h before scan reading
-#                  en/dis cycle:   set 4, set 6  OR  clr 1
-#                  adc-adjacent:  set 4 -> delay -> set 6  OR clr 7
+#   EN        Peripheral master enable
+#   GO        Trigger serial engine
+#   REP1      After a delay (WWAI) go from receive back to transmit, change parallel word
+#   CHGP      Enable V- chargepump output on P02 (independent from serial engine?)
+#   REP2      Similar to REP1?
 #
 # (init to 00h)                                                   FEB1h_WMOD      Communication mode?
 #
 # Divisor, 8-bit. Fclk = Fosc / 2 / (1 + N)                       FEB2h_WCLKG     Clock gen config
 #
-# (Write 4Ah at init AND before each scan)                        FEB3h_WSND      Send counter?
+# Number of clock cycles to transmit for                          FEB3h_WSND      Send counter
+# Number of clocks to receive/integrate for                       FEB4h_WRCV      Receive counter
+# Wait time between receive and repeated send                     FEB5h_WWAI      Wait counter
 #
-# (init to 2Fh)                                                   FEB4h_WRCV
-# (init to 7Fh)                                                   FEB5h_WWAI
 # (init to 32h)                                                   FEB6h_WCDLY0    Delay config?
 #
 # ack?    flag?   flag?   flag?           mode?           mode?   FEB7h_WCDLY1
 #
-# Data word A   (copied from B)                                   FEB8h_WSADRL    Parallel data word
-# Data word A                                                     FEB9h_WSADRH
-# Data word B   (copied from muxctrl table)                       FEBAh_WRADRL    Parallel data word
-# Data word B                                                     FEBBh_WRADRH
+# Parallel word to latch out just before send                     FEB8h_WSADRL    Parallel data word
+#    Modified in an unknown way during REPEAT transmit            FEB9h_WSADRH
+# Parallel word to latch out just before receive                  FEBAh_WRADRL    Parallel data word
+#                                                                 FEBBh_WRADRH
 #
-# (init to 00h near gpio setup, FCh near use)                     FEBCh_WPMR0     Serial data word?
+# (init to 00h near gpio setup, FCh near use)                     FEBCh_WPMR0     Pin mapping bits?
 # (init to 00h near gpio setup, 03h near use)                     FEBDh_WPMR1
 # (init to F0h near gpio setup, F1h near use)                     FEBEh_WPMR2
 #
@@ -353,8 +365,8 @@ def feb0_loader_test(r):
 #     20    VSS
 #     21    AN0              TP11   Analog integrator input
 #     22    P01          W          Integrator reset: when high, integrator quickly falls to zero
-#     23    P02          W          -V charge pump output (CLK/2, phase shifted, gated)
-#     24    P03          W          Enable integrator gate & modulation drive, active high
+#     23    P02          W          -V charge pump output (independent freq/phase)
+#     24    P03          W          Direction: low=output, high=input
 #
 #     25    P04          W          Modulation clock output (usually 750 kHz when active)
 #     26    P05                     N/C, unused driven output
@@ -385,23 +397,35 @@ def feb0_loader_test(r):
 
 def setup_func():
     r = Ropper()
-    #r.irq_disable_tablet()
-    #r.set_counter(0)
-    r.set_wclk_freq(125000)
-    r.le16(mainloop_safe_spot)
+    r.irq_disable_tablet()
+    r.set_counter(0)
+    r.set_wclk_freq(125000)   # Carrier frequency
+    r.poke(0xfeb3, 255)       # Transmit length
+    r.poke(0xfeb4, 90)        # Receive length
     return r
 
 def loop_func():
     r = Ropper()
 
-    # Counter and pulse for debug sync
-    r.debug_pulse()
-    r.inc_counter()
-    r.inc_counter()
-    r.inc_counter()
+    # Heartbeat counter over USB
     r.inc_counter()
     r.memcpy(ep1_buffer+1, counter_addr, 2)
     r.ep1_mouse_packet()
+
+    r.debug_pulse()
+    r.poke(0xfeb0, 0x90)    # Enabled, charge pump on
+    r.debug_pulse()
+
+    r.set_mux_latches(0)    # Sel 0, all muxes enabled
+
+    r.poke(0xfeb0, 0xd0)   # Go
+    r.delay(0.5)
+
+    r.poke(0xfeb0, 0xd0)   # Go
+    r.delay(0.5)
+
+    r.poke(0xfeb0, 0xd0)   # Go
+    r.delay(0.5)
 
     # Memory readback experiment
     #r.memcpy_indirect_src(ep1_buffer+3, counter_addr, 2)
@@ -412,22 +436,22 @@ def loop_func():
     #adr = 0xfeb2
     #r.memcpy_indirect_src(adr, counter_addr+1, 1)
 
-    r.poke(0xfeb3, 0x4a)
-
-    #muxstate = (1<<9) | (1<<8) | (1<<7) | (1<<6) | (0<<3)
-    #r.poke(0xfeba, muxstate & 0xFF)
-    #r.poke(0xfebb, muxstate >> 8)
+    #r.debug_pulse()
+    #r.poke(0xfeb3, 0x4a)
 
     # Load new parallel output mapped to muxes
     # Crudely scans through mux states...
-    r.memcpy(0xfeba, counter_addr, 2)
-    r.memcpy(0xfeb8, 0xfeba, 2)
+    #r.memcpy(0xfeba, counter_addr, 2)
+    #r.memcpy(0xfeb8, 0xfeba, 2)
 
     # strobe?!
-    r.poke(0xfeb0, 0x90)
-    r.poke(0xfeb0, 0xc1)
-
-    r.poke(0xfeb0, 0xd1)   # Sets output (integrator ctrl) as open-collector
+    #r.debug_pulse()
+    #r.poke(0xfeb0, 0b10010000)    # Starts charge pump
+    #r.debug_pulse()
+    #r.poke(0xfeb0, 0b11000001)    # Stops charge pump, starts clock, latches mux, zero enable
+    #r.debug_pulse()
+    #r.poke(0xfeb0, 0b11010001)    # ireset as open collector, chgpump enable again
+    #r.debug_pulse()
 
     # # Clear parallel output
     # r.poke(0xfeba, 0)
