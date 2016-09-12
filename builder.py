@@ -26,7 +26,20 @@ reg_t1cnt = 0xfe18
 reg_p3 = 0xfe4c         # Bit0 = test point TP5
 reg_adcrc = 0xfe58
 reg_ep1cnt = 0xfe98
+reg_wcon = 0xfeb0
+reg_wmod = 0xfeb1
 reg_wclkg = 0xfeb2
+reg_wsnd = 0xfeb3
+reg_wrcv = 0xfeb4
+reg_wwai = 0xfeb5
+reg_wcdly0 = 0xfeb6
+reg_wcdly1 = 0xfeb7
+reg_wsadr = 0xfeb8
+reg_wradr = 0xfeba
+reg_wpmr0 = 0xfebc
+reg_wpmr1 = 0xfebd
+reg_wpmr2 = 0xfebe
+reg_wpllc = 0xfebf
 
 # Code gadgets
 ret = 0x244
@@ -177,6 +190,10 @@ class Ropper:
     def poke(self, dest, byte):
         self.copy_from_codemem(dest, byte_gadgets[byte], 1)
 
+    def pokew(self, dest, word):
+        self.poke(dest, word & 0xff)
+        self.poke(dest+1, word >> 8)
+
     def get_stuck(self):
         self.le16(infinite_loop)
 
@@ -228,23 +245,6 @@ class Ropper:
         self.irq_disable_timer1()
         self.irq_disable_adc()
         self.irq_global_restore()
-
-    def set_mux_latches(self, select_bits, enable_bits):
-        assert select_bits >= 0 and select_bits <= 7
-        assert enable_bits >= 0 and enable_bits <= 0xF
-        enable_bits ^= 0xF
-        word = (select_bits << 3) | (enable_bits << 6)
-        self.poke(0xfeba, word & 0xFF)
-        self.poke(0xfebb, word >> 8)
-        self.memcpy(0xfeb8, 0xfeba, 2)
-
-    def set_mux_from_ram(self, addr):
-        self.memcpy(0xfeba, addr, 2)
-        self.memcpy(0xfeb8, 0xfeba, 2)
-
-    def set_mux_from_codemem(self, addr):
-        self.copy_from_codemem(0xfeba, addr, 2)
-        self.memcpy(0xfeb8, 0xfeba, 2)
 
 
 def make_slide(entry):
@@ -317,13 +317,13 @@ def feb0_loader_test(r):
 # 7       6       5       4       3       2       1       0       reg
 # ----------------------------------------------------------------------------
 #
-# EN      GO      REP1    CHGP                    ctrl?   REP2    FEB0h_WCON      Control reg
+# EN      GO      EWAI    CHGP                    ctrl?   REP     FEB0h_WCON      Control reg
 #
 #   EN        Peripheral master enable
 #   GO        Trigger serial engine
-#   REP1      After a delay (WWAI) go from receive back to transmit, change parallel word
+#   EWAI      Enable wait counter
 #   CHGP      Enable V- chargepump output on P02 (independent from serial engine?)
-#   REP2      Similar to REP1?
+#   REP       Repeat transfer
 #
 # (init to 00h)                                                   FEB1h_WMOD      Communication mode?
 #
@@ -392,7 +392,7 @@ def feb0_loader_test(r):
 #     33    P24      WRS.5          Mux select output bit 2
 #     34    P25      WRS.4          Mux select output bit 1
 #     35    P26      WRS.3          Mux select output bit 0
-#     36    P27      WRS.2          N/C, weakly driven output?
+#     36    P27      WRS.2          N/C, unused driven output
 #
 #     37    D-                      USB Data
 #     38    D+
@@ -412,11 +412,12 @@ def setup_func():
     r = Ropper()
     r.irq_disable_tablet()
     r.set_counter(0)
-    r.set_wclk_freq(125000)     # Carrier frequency
-    r.poke(0xfeb3, 60)          # Transmit length
-    r.poke(0xfeb4, 30)          # Receive length
-    r.poke(0xfeb5, 0)           # Repeat delay
-    r.poke(0xfeb0, 0x90)        # Enabled, charge pump on
+    r.set_wclk_freq(125000)         # Carrier frequency
+    r.poke(reg_wsnd, 74)          # Transmit length
+    r.poke(reg_wrcv, 155)          # Receive length
+    r.poke(reg_wwai, 127)          # Repeat delay
+    r.poke(reg_wcon, 0xb0)          # Enabled, wait enabled, charge pump on
+    r.poke(reg_wcon, 0xf1)          # Go, repeat
     return r
 
 def loop_func():
@@ -428,9 +429,9 @@ def loop_func():
     r.memcpy(ep1_buffer+1, counter_addr, 2)
     r.ep1_mouse_packet()
 
-    r.set_mux_latches(3, 2|8)
+    r.pokew(reg_wsadr, 0x158)       # Where to transmit
+    r.memcpy(reg_wradr, reg_wsadr, 2)
 
-    r.poke(0xfeb0, 0xd1)        # Go, repeat
 
     r.debug_pulse()
     r.delay(150)
