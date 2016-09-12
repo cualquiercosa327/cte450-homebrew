@@ -169,9 +169,10 @@ class Ropper:
     def delay(self, millisec):
         # memcpy is pretty slow, try to do a nop with it
         v = int(round(102 * millisec))
-        if v > 0:
-            assert v < 0x3000
-            self.memcpy(0xc000, 0xc000, v)
+        while v > 0:
+            q = min(v, 0x3000)
+            self.memcpy(0xc000, 0xc000, q)
+            v -= q
 
     def poke(self, dest, byte):
         self.copy_from_codemem(dest, byte_gadgets[byte], 1)
@@ -228,9 +229,21 @@ class Ropper:
         self.irq_disable_adc()
         self.irq_global_restore()
 
-    def set_mux_latches(self, word):
+    def set_mux_latches(self, select_bits, enable_bits):
+        assert select_bits >= 0 and select_bits <= 7
+        assert enable_bits >= 0 and enable_bits <= 0xF
+        enable_bits ^= 0xF
+        word = (select_bits << 3) | (enable_bits << 6)
         self.poke(0xfeba, word & 0xFF)
         self.poke(0xfebb, word >> 8)
+        self.memcpy(0xfeb8, 0xfeba, 2)
+
+    def set_mux_from_ram(self, addr):
+        self.memcpy(0xfeba, addr, 2)
+        self.memcpy(0xfeb8, 0xfeba, 2)
+
+    def set_mux_from_codemem(self, addr):
+        self.copy_from_codemem(0xfeba, addr, 2)
         self.memcpy(0xfeb8, 0xfeba, 2)
 
 
@@ -399,33 +412,35 @@ def setup_func():
     r = Ropper()
     r.irq_disable_tablet()
     r.set_counter(0)
-    r.set_wclk_freq(125000)   # Carrier frequency
-    r.poke(0xfeb3, 255)       # Transmit length
-    r.poke(0xfeb4, 90)        # Receive length
+    r.set_wclk_freq(125000)     # Carrier frequency
+    r.poke(0xfeb3, 255)         # Transmit length
+    r.poke(0xfeb4, 5)           # Receive length
+    r.poke(0xfeb5, 0)           # Repeat delay
+    r.poke(0xfeb0, 0x90)        # Enabled, charge pump on
+    r.poke(0xfeb0, 0xd1)        # Go, repeat
     return r
 
 def loop_func():
     r = Ropper()
+    r.irq_disable_tablet()
 
     # Heartbeat counter over USB
+    r.inc_counter()
+    r.inc_counter()
+    r.inc_counter()
+    r.inc_counter()
+    r.inc_counter()
+    r.inc_counter()
+    r.inc_counter()
     r.inc_counter()
     r.memcpy(ep1_buffer+1, counter_addr, 2)
     r.ep1_mouse_packet()
 
+#    r.set_mux_from_ram(counter_addr)
+    r.set_mux_latches(3, 2|8)
+
     r.debug_pulse()
-    r.poke(0xfeb0, 0x90)    # Enabled, charge pump on
-    r.debug_pulse()
-
-    r.set_mux_latches(0)    # Sel 0, all muxes enabled
-
-    r.poke(0xfeb0, 0xd0)   # Go
-    r.delay(0.5)
-
-    r.poke(0xfeb0, 0xd0)   # Go
-    r.delay(0.5)
-
-    r.poke(0xfeb0, 0xd0)   # Go
-    r.delay(0.5)
+    r.delay(150)
 
     # Memory readback experiment
     #r.memcpy_indirect_src(ep1_buffer+3, counter_addr, 2)
@@ -473,4 +488,3 @@ def write_loop(base_addr, setup_code, body_code):
 
 if __name__ == '__main__':
     write_loop(rop_addr, setup_func(), loop_func())
-
