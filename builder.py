@@ -412,45 +412,36 @@ def feb0_loader_test(r):
 
 def setup_func():
     r = Ropper()
-    r.irq_disable_tablet()
+    r.irq_global_disable()
     r.set_counter(0)
-    r.set_wclk_freq(125000)         # Carrier frequency
-    r.poke(reg_wcon, 0xb0)          # Enabled, wait enabled, charge pump on
+    r.poke(reg_wcon, 0xb0)              # Enabled, wait enabled, charge pump on
+    r.poke(reg_wsnd, 127)               # Transmit length
+    r.poke(reg_wrcv, 32)                # Receive length
+    r.poke(reg_wwai, 64)                # Repeat delay
+    r.set_wclk_freq(125000)             # Carrier frequency
+    r.pokew(reg_wsadr, 0x158)           # Where to transmit (X12)
+    r.memcpy(reg_wradr, reg_wsadr, 2)   # Receive at the same spot
+    r.poke(reg_wcon, 0xf1)              # Go, repeat
     return r
 
 def loop_func():
     r = Ropper()
-    r.irq_global_disable()
+    r.poke(reg_wcon, 0xf1)              # Wake up charge pump
 
-    r.pokew(reg_wsadr, 0x158)          # Where to transmit (X12)
-    r.memcpy(reg_wradr, reg_wsadr, 2)  # Receive at the same spot
-
-    # EM4100 = 32 cycles (0.256 ms) per encoded bit
-
-    r.poke(reg_wsnd, 31)   # Transmit length
-    r.poke(reg_wrcv, 30)   # Receive length
-    r.poke(reg_wwai, 0x80) # Repeat delay
-
-    r.poke(reg_wcon, 0xf1)          # Go, repeat
-    r.delay(0.6)
-
-    # Start ADC on AN0, without interrupt
-    r.debug_pulse()
-    r.poke(reg_adcrc, 0x04)
-
-    r.delay(0.4)
-    r.poke(reg_wcon, 0xb0)          # Stop
-    r.debug_pulse()
-
-    r.irq_global_restore()
-
-    # Heartbeat counter and ADC result over USB
+    # Heartbeat counter and prior ADC result over USB
     r.inc_counter()
     r.memcpy(ep1_buffer+1, counter_addr, 2)
     r.memcpy(ep1_buffer+3, reg_adrlc, 2)
     r.ep1_mouse_packet()
 
-    r.delay(20)
+    r.debug_pulse()
+    r.poke(reg_wcon, 0xf1)              # Wake up charge pump
+    r.poke(reg_adcrc, 0x04)             # Start ADC on AN0, without interrupt
+    r.debug_pulse()
+
+    r.nop()
+    r.nop()
+
     return r
 
 
