@@ -413,28 +413,42 @@ def setup_func():
     r.irq_disable_tablet()
     r.set_counter(0)
     r.set_wclk_freq(125000)         # Carrier frequency
-    r.poke(reg_wsnd, 74)          # Transmit length
-    r.poke(reg_wrcv, 155)          # Receive length
-    r.poke(reg_wwai, 127)          # Repeat delay
     r.poke(reg_wcon, 0xb0)          # Enabled, wait enabled, charge pump on
-    r.poke(reg_wcon, 0xf1)          # Go, repeat
     return r
 
 def loop_func():
     r = Ropper()
-    r.irq_disable_tablet()
 
     # Heartbeat counter over USB
+    r.inc_counter()
+    r.inc_counter()
+    r.inc_counter()
+    r.inc_counter()
+    r.inc_counter()
+    r.inc_counter()
+    r.inc_counter()
     r.inc_counter()
     r.memcpy(ep1_buffer+1, counter_addr, 2)
     r.ep1_mouse_packet()
 
-    r.pokew(reg_wsadr, 0x158)       # Where to transmit
-    r.memcpy(reg_wradr, reg_wsadr, 2)
+    r.pokew(reg_wsadr, 0x158)          # Where to transmit (X12)
+    r.memcpy(reg_wradr, reg_wsadr, 2)  # Receive at the same spot
 
+    # EM4100 = 32 cycles (0.256 ms) per encoded bit
 
+    r.poke(reg_wsnd, 31)   # Transmit length
+    r.poke(reg_wrcv, 30)   # Receive length
+    r.poke(reg_wwai, 0)    # Repeat delay
+
+    #r.memcpy(reg_wrcv, counter_addr, 1)
+
+    # Trigger oscope
     r.debug_pulse()
-    r.delay(150)
+
+    r.poke(reg_wcon, 0xf1)          # Go, repeat
+    r.delay(30)
+    r.poke(reg_wcon, 0xb0)          # Stop
+    r.delay(60)
 
     return r
 
