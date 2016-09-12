@@ -18,7 +18,8 @@ rl.on('line', (input) => {
 });
 
 dev.on('data', (data) => {
-	console.log(data.toString('hex'));
+	var adcr = data.readInt16LE(3) >> 4;
+	console.log(data.toString('hex'), adcr, "#".repeat(adcr - 400));
 });
 
 dev.on('error', (e) => {

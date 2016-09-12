@@ -25,6 +25,8 @@ reg_t0cnt = 0xfe10
 reg_t1cnt = 0xfe18
 reg_p3 = 0xfe4c         # Bit0 = test point TP5
 reg_adcrc = 0xfe58
+reg_adrlc = 0xfe5a
+reg_adrhc = 0xfe5b
 reg_ep1cnt = 0xfe98
 reg_wcon = 0xfeb0
 reg_wmod = 0xfeb1
@@ -418,18 +420,7 @@ def setup_func():
 
 def loop_func():
     r = Ropper()
-
-    # Heartbeat counter over USB
-    r.inc_counter()
-    r.inc_counter()
-    r.inc_counter()
-    r.inc_counter()
-    r.inc_counter()
-    r.inc_counter()
-    r.inc_counter()
-    r.inc_counter()
-    r.memcpy(ep1_buffer+1, counter_addr, 2)
-    r.ep1_mouse_packet()
+    r.irq_global_disable()
 
     r.pokew(reg_wsadr, 0x158)          # Where to transmit (X12)
     r.memcpy(reg_wradr, reg_wsadr, 2)  # Receive at the same spot
@@ -438,18 +429,28 @@ def loop_func():
 
     r.poke(reg_wsnd, 31)   # Transmit length
     r.poke(reg_wrcv, 30)   # Receive length
-    r.poke(reg_wwai, 0)    # Repeat delay
-
-    #r.memcpy(reg_wrcv, counter_addr, 1)
-
-    # Trigger oscope
-    r.debug_pulse()
+    r.poke(reg_wwai, 0x80) # Repeat delay
 
     r.poke(reg_wcon, 0xf1)          # Go, repeat
-    r.delay(30)
-    r.poke(reg_wcon, 0xb0)          # Stop
-    r.delay(60)
+    r.delay(0.6)
 
+    # Start ADC on AN0, without interrupt
+    r.debug_pulse()
+    r.poke(reg_adcrc, 0x04)
+
+    r.delay(0.4)
+    r.poke(reg_wcon, 0xb0)          # Stop
+    r.debug_pulse()
+
+    r.irq_global_restore()
+
+    # Heartbeat counter and ADC result over USB
+    r.inc_counter()
+    r.memcpy(ep1_buffer+1, counter_addr, 2)
+    r.memcpy(ep1_buffer+3, reg_adrlc, 2)
+    r.ep1_mouse_packet()
+
+    r.delay(20)
     return r
 
 
