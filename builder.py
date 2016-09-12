@@ -413,11 +413,10 @@ def setup_func():
     r.irq_disable_tablet()
     r.set_counter(0)
     r.set_wclk_freq(125000)     # Carrier frequency
-    r.poke(0xfeb3, 255)         # Transmit length
-    r.poke(0xfeb4, 5)           # Receive length
+    r.poke(0xfeb3, 60)          # Transmit length
+    r.poke(0xfeb4, 30)          # Receive length
     r.poke(0xfeb5, 0)           # Repeat delay
     r.poke(0xfeb0, 0x90)        # Enabled, charge pump on
-    r.poke(0xfeb0, 0xd1)        # Go, repeat
     return r
 
 def loop_func():
@@ -426,56 +425,15 @@ def loop_func():
 
     # Heartbeat counter over USB
     r.inc_counter()
-    r.inc_counter()
-    r.inc_counter()
-    r.inc_counter()
-    r.inc_counter()
-    r.inc_counter()
-    r.inc_counter()
-    r.inc_counter()
     r.memcpy(ep1_buffer+1, counter_addr, 2)
     r.ep1_mouse_packet()
 
-#    r.set_mux_from_ram(counter_addr)
     r.set_mux_latches(3, 2|8)
+
+    r.poke(0xfeb0, 0xd1)        # Go, repeat
 
     r.debug_pulse()
     r.delay(150)
-
-    # Memory readback experiment
-    #r.memcpy_indirect_src(ep1_buffer+3, counter_addr, 2)
-
-    # feb0 hardware investigation
-    #r.memcpy(ep1_buffer+1, 0xfeb8, 4)
-
-    #adr = 0xfeb2
-    #r.memcpy_indirect_src(adr, counter_addr+1, 1)
-
-    #r.debug_pulse()
-    #r.poke(0xfeb3, 0x4a)
-
-    # Load new parallel output mapped to muxes
-    # Crudely scans through mux states...
-    #r.memcpy(0xfeba, counter_addr, 2)
-    #r.memcpy(0xfeb8, 0xfeba, 2)
-
-    # strobe?!
-    #r.debug_pulse()
-    #r.poke(0xfeb0, 0b10010000)    # Starts charge pump
-    #r.debug_pulse()
-    #r.poke(0xfeb0, 0b11000001)    # Stops charge pump, starts clock, latches mux, zero enable
-    #r.debug_pulse()
-    #r.poke(0xfeb0, 0b11010001)    # ireset as open collector, chgpump enable again
-    #r.debug_pulse()
-
-    # # Clear parallel output
-    # r.poke(0xfeba, 0)
-    # r.poke(0xfebb, 0)
-    # r.memcpy(0xfeb8, 0xfeba, 2)
-
-    # # strobe?!
-    # r.poke(0xfeb0, 0x90)
-    # r.poke(0xfeb0, 0xc1)
 
     return r
 
