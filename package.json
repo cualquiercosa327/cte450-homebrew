@@ -1,0 +1,19 @@
+{
+  "name": "cte450-homebrew",
+  "version": "0.0.1",
+  "description": "CTE-450 Homebrew",
+  "main": "poker.js",
+  "dependencies": {
+    "hid": "^0.0.0"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/scanlime/cte450-homebrew.git"
+  },
+  "author": "scanlime",
+  "license": "MIT"
+}
