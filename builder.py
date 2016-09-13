@@ -18,8 +18,10 @@ stack_base = 0x443
 timer0_funcptr = 0x39d
 rop_addr = 0x4f0
 counter_addr = 0x38c
+ep1flags = 0x1D
 
 # LC87 registers
+reg_pcon = 0xfe07
 reg_ie = 0xfe08
 reg_t0cnt = 0xfe10
 reg_t1cnt = 0xfe18
@@ -27,6 +29,8 @@ reg_p3 = 0xfe4c         # Bit0 = test point TP5
 reg_adcrc = 0xfe58
 reg_adrlc = 0xfe5a
 reg_adrhc = 0xfe5b
+reg_btcr = 0xfe7f
+reg_usbint = 0xfe82
 reg_ep1cnt = 0xfe98
 reg_wcon = 0xfeb0
 reg_wmod = 0xfeb1
@@ -55,12 +59,15 @@ copy_codememR3_ramR2_countR4 = 0x2a30
 stw_r3_ep0ack_ld04_popw_r2_r4_r5_r7_r6 = 0x23ec
 st_r1_ep0ackstall_popw_r2 = 0x1e42
 timer0_disable = 0x29ca
+timer0_set_funcR3_timeoutR2 = 0x2983
 adc_shutdown = 0xb89
 memcpy_destR2_srcR3_countR4 = 0x29e0
 feb0_loader = 0xb97
 ep1sta_bit3_set = 0x25e1
 incw_counter_popw_r2_r3_r4 = 0x13c8
 r0_to_counter_popw_r2_r3 = 0xe12
+pwm0_disable = 0x2f87
+pwm1_disable = 0x2f11
 
 # Lookup table for finding arbitrary bytes in code memory
 # missing values: 52 D2
@@ -412,8 +419,20 @@ def feb0_loader_test(r):
 
 def setup_func():
     r = Ropper()
+
     r.irq_global_disable()
+
+    r.irq_disable_timer0()
+    r.irq_disable_timer1()
+    r.irq_disable_adc()
+    r.le16(pwm0_disable)
+    r.le16(pwm1_disable)
+    r.poke(reg_usbint, 0)       # USB interrupts off
+    r.poke(reg_btcr, 0)         # Base timer & interrupts off
+    r.poke(ep1flags, 0)         # Don't start an ADC cycle in the T0H ISR
+
     r.set_counter(0)
+
     r.poke(reg_wcon, 0xb0)              # Enabled, wait enabled, charge pump on
     r.poke(reg_wsnd, 127)               # Transmit length
     r.poke(reg_wrcv, 32)                # Receive length
@@ -421,12 +440,15 @@ def setup_func():
     r.set_wclk_freq(125000)             # Carrier frequency
     r.pokew(reg_wsadr, 0x158)           # Where to transmit (X12)
     r.memcpy(reg_wradr, reg_wsadr, 2)   # Receive at the same spot
-    r.poke(reg_wcon, 0xf1)              # Go, repeat
+
+    r.poke(reg_wcon, 0xf1)              # Go & repeat
+
+    r.irq_global_restore()
+
     return r
 
 def loop_func():
     r = Ropper()
-    r.poke(reg_wcon, 0xf1)              # Wake up charge pump
 
     # Heartbeat counter and prior ADC result over USB
     r.inc_counter()
@@ -434,13 +456,33 @@ def loop_func():
     r.memcpy(ep1_buffer+3, reg_adrlc, 2)
     r.ep1_mouse_packet()
 
-    r.debug_pulse()
-    r.poke(reg_wcon, 0xf1)              # Wake up charge pump
-    r.poke(reg_adcrc, 0x04)             # Start ADC on AN0, without interrupt
+    # Sync this loop to the carrier by IDLE'ing until an
+    # (undocumented?) ISR wakes us up just after the Receive cycle finishes.
+    # All other normal ISRs are disabled in setup.
+    r.poke(reg_pcon, 1)
     r.debug_pulse()
 
-    r.nop()
-    r.nop()
+    # r.le16(popw_r2_r3_r4)
+    # r.rel16(-2*5)
+    # r.le16(counter_addr)
+    # r.le16(2)
+    # r.le16(memcpy_destR2_srcR3_countR4)
+
+    # r.le16(popw_r2_r3_r4)
+    # r.le16(0x5000)
+    # r.le16(ret)
+    # r.le16(0)
+    # r.le16(timer0_set_funcR3_timeoutR2)
+
+
+ #   r.poke(reg_wcon, 0xf1)              # Wake up charge pump
+
+
+#    r.debug_pulse()
+#    r.poke(reg_wcon, 0xf1)              # Wake up charge pump
+#    r.poke(reg_adcrc, 0x04)             # Start ADC on AN0, without interrupt
+#    r.debug_pulse()
+
 
     return r
 
