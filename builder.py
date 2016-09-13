@@ -456,33 +456,17 @@ def loop_func():
     r.memcpy(ep1_buffer+3, reg_adrlc, 2)
     r.ep1_mouse_packet()
 
+    # Poke charge pump watchdog?
+    r.poke(reg_wcon, 0xf1)
+
     # Sync this loop to the carrier by IDLE'ing until an
     # (undocumented?) ISR wakes us up just after the Receive cycle finishes.
     # All other normal ISRs are disabled in setup.
     r.poke(reg_pcon, 1)
+
+    # Start the ADC as soon as we can after that interrupt
+    r.poke(reg_adcrc, 0x04)
     r.debug_pulse()
-
-    # r.le16(popw_r2_r3_r4)
-    # r.rel16(-2*5)
-    # r.le16(counter_addr)
-    # r.le16(2)
-    # r.le16(memcpy_destR2_srcR3_countR4)
-
-    # r.le16(popw_r2_r3_r4)
-    # r.le16(0x5000)
-    # r.le16(ret)
-    # r.le16(0)
-    # r.le16(timer0_set_funcR3_timeoutR2)
-
-
- #   r.poke(reg_wcon, 0xf1)              # Wake up charge pump
-
-
-#    r.debug_pulse()
-#    r.poke(reg_wcon, 0xf1)              # Wake up charge pump
-#    r.poke(reg_adcrc, 0x04)             # Start ADC on AN0, without interrupt
-#    r.debug_pulse()
-
 
     return r
 

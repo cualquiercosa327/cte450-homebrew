@@ -19,7 +19,7 @@ rl.on('line', (input) => {
 
 dev.on('data', (data) => {
 	var adcr = data.readUInt16LE(3) >> 4;
-	var ticks = Math.round(Math.max(0, Math.min(1000, adcr - 400)));
+	var ticks = Math.round(Math.max(0, Math.min(1000, adcr - 160)));
 	console.log(data.toString('hex'), adcr, "#".repeat(ticks));
 });
 
