@@ -450,14 +450,13 @@ def setup_func():
 def loop_func():
     r = Ropper()
 
-    # Heartbeat counter and prior ADC result over USB
-    r.inc_counter()
-    r.memcpy(ep1_buffer+1, counter_addr, 2)
+    # Save last ADC result
     r.memcpy(ep1_buffer+3, reg_adrlc, 2)
-    r.ep1_mouse_packet()
 
-    # Poke charge pump watchdog?
-    r.poke(reg_wcon, 0xf1)
+    # Neither the ROP nor the default USB endpoint can keep up
+    # with the full rate; if we delay by a predictable amount,
+    # we can eventually undersample the whole repeating signal
+    r.delay(3)      # 7x
 
     # Sync this loop to the carrier by IDLE'ing until an
     # (undocumented?) ISR wakes us up just after the Receive cycle finishes.
@@ -467,6 +466,14 @@ def loop_func():
     # Start the ADC as soon as we can after that interrupt
     r.poke(reg_adcrc, 0x04)
     r.debug_pulse()
+
+    # Send sample and counter over USB
+    r.inc_counter()
+    r.memcpy(ep1_buffer+1, counter_addr, 2)
+    r.ep1_mouse_packet()
+
+    # Poke charge pump watchdog?
+    r.poke(reg_wcon, 0xf1)
 
     return r
 
