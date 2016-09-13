@@ -434,10 +434,10 @@ def setup_func():
     r.set_counter(0)
 
     r.poke(reg_wcon, 0xb0)              # Enabled, wait enabled, charge pump on
+    r.set_wclk_freq(125000)             # Carrier frequency
     r.poke(reg_wsnd, 127)               # Transmit length
     r.poke(reg_wrcv, 32)                # Receive length
-    r.poke(reg_wwai, 64)                # Repeat delay
-    r.set_wclk_freq(125000)             # Carrier frequency
+    r.poke(reg_wwai, 32)                # Repeat delay
     r.pokew(reg_wsadr, 0x158)           # Where to transmit (X12)
     r.memcpy(reg_wradr, reg_wsadr, 2)   # Receive at the same spot
 
@@ -456,7 +456,7 @@ def loop_func():
     # Neither the ROP nor the default USB endpoint can keep up
     # with the full rate; if we delay by a predictable amount,
     # we can eventually undersample the whole repeating signal
-    r.delay(3)      # 7x
+    r.delay(1.8)
 
     # Sync this loop to the carrier by IDLE'ing until an
     # (undocumented?) ISR wakes us up just after the Receive cycle finishes.
