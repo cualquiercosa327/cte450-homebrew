@@ -439,7 +439,7 @@ def setup_func():
 
     r.poke(reg_wcon, 0xb0)              # Enabled, wait enabled, charge pump on
     r.set_wclk_freq(125000)             # Carrier frequency
-    r.poke(reg_wsnd, 191)               # Transmit length
+    r.poke(reg_wsnd, 192)               # Transmit length
     r.poke(reg_wrcv, 32)                # Receive length
     r.poke(reg_wwai, 32)                # Repeat delay
     r.pokew(reg_wsadr, 0x158)           # Where to transmit (X12)
