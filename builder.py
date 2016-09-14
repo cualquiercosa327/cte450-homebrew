@@ -456,7 +456,7 @@ def loop_func():
     # Neither the ROP nor the default USB endpoint can keep up
     # with the full rate; if we delay by a predictable amount,
     # we can eventually undersample the whole repeating signal
-    r.delay(1.8)
+    r.delay(2.5)
 
     # Sync this loop to the carrier by IDLE'ing until an
     # (undocumented?) ISR wakes us up just after the Receive cycle finishes.

@@ -7,8 +7,8 @@ const rl = readline.createInterface({input: process.stdin});
 const dev = new HID.HID(0x56a, 0x17)
 
 var sample_spacing = 3
-var pattern_length = 64;
-var smoothing = 0.0;
+var pattern_length = 128;
+var smoothing = 0.6;
 
 var bins = [];
 
