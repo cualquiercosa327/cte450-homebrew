@@ -3,6 +3,7 @@
 const HID = require('node-hid');
 const readline = require('readline');
 const fs = require('fs');
+const Fili = require('fili');
 const rl = readline.createInterface({input: process.stdin});
 const dev = new HID.HID(0x56a, 0x17)
 
@@ -21,13 +22,23 @@ rl.on('line', (input) => {
     dev.sendFeatureReport(data);
 });
 
-var iir = [0];
+var firCalculator = new Fili.FirCoeffs();
+var firBandpass = new Fili.FirFilter(firCalculator.bandpass({
+    order: 128,
+    Fs: 630,
+    F1: 40,
+    F2: 100,
+}));
 
 function do_sample(adcr) {
-    const c = 0.2;
-    var s = iir[0] = iir[0] * 0.2 + adcr * (1.0 - c);
-    var ticks = '#'.repeat(Math.max(0, Math.min(1000, Math.round(s) - 550)));
-    console.log(s, ticks);
+    const y = firBandpass.singleStep(adcr);
+    const width = 200;
+    const middle = width/2;
+    const gain = 4.0;
+    const w = Math.max(0, Math.min(middle, Math.abs(Math.round(y * gain))));
+    var ticks = y > 0 ? (' '.repeat(middle) + '1'.repeat(w)) :
+                        (' '.repeat(middle-w) + '0'.repeat(w));
+    console.log(ticks);
 }
 
 dev.on('data', (data) => {

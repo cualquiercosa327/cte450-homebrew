@@ -4,6 +4,7 @@
   "description": "CTE-450 Homebrew",
   "main": "poker.js",
   "dependencies": {
+    "fili": "^1.2.1",
     "node-hid": "^0.5.1"
   },
   "devDependencies": {},
