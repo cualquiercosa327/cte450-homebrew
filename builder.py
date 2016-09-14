@@ -259,6 +259,12 @@ class Ropper:
         self.irq_disable_adc()
         self.irq_global_restore()
 
+    def irq_wait(self):
+        self.poke(reg_pcon, 1)
+
+    def adc_start(self):
+        self.poke(reg_adcrc, 0x04)
+
 
 def make_slide(entry):
     r = Ropper()
@@ -268,8 +274,9 @@ def make_slide(entry):
     return r
 
 
-def make_looper(base_addr, setup_code, body_code):
+def make_looper(base_addr, setup_code, body_factory):
     # Executing code destroys it, we have to make copies.
+    # This is slow, so we give the loop body an option to do it incrementally.
 
     def trampoline(dest, src, size):
         r = Ropper()
@@ -277,11 +284,17 @@ def make_looper(base_addr, setup_code, body_code):
         r.jmp(dest + size - 1)
         return r.bytes
 
+    default_margin = 0x50
+    def precopy_placeholder(r, margin=default_margin):
+        if len(r.bytes) >= margin:
+            r.memcpy(0,0,0)
+
     trampoline_size = len(trampoline(0,0,0))
+    body_size = len(body_factory(precopy_placeholder).bytes)
 
     # We'll need to include room for 2 extra trampolines with the body,
     # the one used to restore the setup trampoline, and the setup trampoline itself.
-    augmented_body_size = 2 * trampoline_size + len(body_code.bytes)
+    augmented_body_size = 2 * trampoline_size + body_size
 
     # Now we can lay out the address space. Copy of the loop body overwrites the setup code.
     addr_augbody_orig = base_addr
@@ -290,13 +303,25 @@ def make_looper(base_addr, setup_code, body_code):
     addr_augbody_copy = addr_setup_code
     addr_body_copy = addr_augbody_copy + 2 * trampoline_size
 
-    setup_trampoline = trampoline(addr_augbody_copy, addr_augbody_orig, augmented_body_size)
+    # Generate the actual body code, and keep track of how much precopying we've done.
+    # At each precopy opportunity, we can overwrite anything >= what's already executed.
+    precopy_len = [0]
+    def precopy_fn(r, margin=default_margin, precopy_len=precopy_len):
+        if len(r.bytes) >= margin:
+            next_precopy_len = len(r.bytes) - margin
+            offset = augmented_body_size - next_precopy_len
+            r.memcpy(addr_augbody_copy + offset, addr_augbody_orig + offset, next_precopy_len - precopy_len[0])
+            precopy_len[0] = next_precopy_len
+    body_code = body_factory(precopy_fn)
+
+    first_setup_trampoline = trampoline(addr_augbody_copy, addr_augbody_orig, augmented_body_size)
+    repeat_setup_trampoline = trampoline(addr_augbody_copy, addr_augbody_orig, augmented_body_size - precopy_len[0])
     restore_trampoline = trampoline(addr_setup_trampoline, addr_augbody_orig, trampoline_size)
 
-    augmented_body = setup_trampoline + restore_trampoline + body_code.link(addr_body_copy)
+    augmented_body = repeat_setup_trampoline + restore_trampoline + body_code.link(addr_body_copy)
     assert len(augmented_body) == augmented_body_size
 
-    return augmented_body + setup_trampoline + setup_code.link(addr_setup_code)
+    return augmented_body + first_setup_trampoline + setup_code.link(addr_setup_code)
 
 
 def feb0_loader_test(r):
@@ -320,107 +345,6 @@ def feb0_loader_test(r):
     ])              #   F1h  -> FEB0h_WCON
     r.le16(feb0_loader)
 
-# SFR 0xfeb0:
-#     Undocumented hardware starting here, something specfic to the 'W' series
-#     LC871 chips, which don't have a public data sheet. Guessing that this is
-#     a one-wire interface with some proprietary Sanyo/ONsemi format; I think
-#     it's the same one used by the TCB87-TypeC debug interface, but here it's
-#     being reused afaict mostly to generate the 750 kHz modulation pulses.
-#     Names here were gleaned from data files included with the toolthain.
-#
-# 7       6       5       4       3       2       1       0       reg
-# ----------------------------------------------------------------------------
-#
-# EN      GO      EWAI    CHGP                    ctrl?   REP     FEB0h_WCON      Control reg
-#
-#   EN        Peripheral master enable
-#   GO        Trigger serial engine
-#   EWAI      Enable wait counter
-#   CHGP      Enable V- chargepump output on P02 (independent from serial engine?)
-#   REP       Repeat transfer
-#
-# (init to 00h)                                                   FEB1h_WMOD      Communication mode?
-#
-# Divisor, 8-bit. Fclk = Fosc / 2 / (1 + N)                       FEB2h_WCLKG     Clock gen config
-#
-# Number of clock cycles to transmit for                          FEB3h_WSND      Send counter, 8-bit
-# Number of clocks to receive/integrate for                       FEB4h_WRCV      Receive counter, 7-bit
-# Wait time between receive and repeated send                     FEB5h_WWAI      Wait counter, 7-bit
-#
-# (init to 32h)                                                   FEB6h_WCDLY0    Delay config?
-#
-# ack?    flag?   flag?   flag?           mode?           mode?   FEB7h_WCDLY1
-#
-# Parallel word to latch out just before send                     FEB8h_WSADRL    Parallel data word
-#    Modified in an unknown way during REPEAT transmit            FEB9h_WSADRH
-# Parallel word to latch out just before receive                  FEBAh_WRADRL    Parallel data word
-#                                                                 FEBBh_WRADRH
-#
-# (init to 00h near gpio setup, FCh near use)                     FEBCh_WPMR0     Pin mapping bits?
-# (init to 00h near gpio setup, 03h near use)                     FEBDh_WPMR1
-# (init to F0h near gpio setup, F1h near use)                     FEBEh_WPMR2
-#
-# (unused except by factory test support)                         FEBFh_WPLLC     PLL for higher freq?
-#
-# The word-wide ports WSADR and WRADR are both set (sometimes by writing twice,
-# others by copying from WRADR to WSADR after writing WRADR) from model-specific
-# tables of multiplexer control values. Marked below as WRS.<bit>
-#
-# Pins:
-# ("W" pins seem to be controlled directly by FEB0h hardware)
-#
-#     1     P73                     Touch ring drive output
-#     2     /RES             TP10   Reset RC circuit
-#     3     AN10                    10k pull-down resistor
-#     4     AN11             TP8    Touch ring analog input
-#     5     VSS              TP15
-#     6     XTAL                    12 MHz xtal
-#     7     XTAL
-#     8     VDD
-#     9     P10                     N/C
-#     10    P11                     Power control
-#     11    P12                     Button SW1, active low
-#     12    P13                     Button SW3, active low
-#
-#     13    P14                     Button SW2, active low
-#     14    P15                     Button SW4, active low
-#     15    P16                     10k pull-down resistor
-#     16    P17                     N/C, unused driven output
-#     17    PWM1                    LEDs
-#     18    PWM0                    LEDs
-#     19    VDD
-#     20    VSS
-#     21    AN0              TP11   Analog integrator input
-#     22    P01          W          Integrator reset: when high, integrator quickly falls to zero
-#     23    P02          W          -V charge pump output (independent freq/phase)
-#     24    P03          W          Direction: low=output, high=input
-#
-#     25    P04          W          Modulation clock output (usually 750 kHz when active)
-#     26    P05                     N/C, unused driven output
-#     27    P06                     N/C, unused driven output
-#     28    P07                     Input, 10K pull-down on CTE-450 (part of model-select?)
-#     29    P20      WRS.9          Mux enable output 3, active low
-#     30    P21      WRS.8          Mux enable output 2, active low
-#     31    P22      WRS.7          Mux enable output 1, active low
-#     32    P23      WRS.6          Mux enable output 0, active low
-#     33    P24      WRS.5          Mux select output bit 2
-#     34    P25      WRS.4          Mux select output bit 1
-#     35    P26      WRS.3          Mux select output bit 0
-#     36    P27      WRS.2          N/C, unused driven output
-#
-#     37    D-                      USB Data
-#     38    D+
-#     39    VDD
-#     40    VSS
-#     41    UFILT                   USB Filter
-#     42    P33                     N/C, unused driven output
-#     43    P32              TP3    DBGP2, unused driven output
-#     44    P31              TP4    DBGP1, unused driven output
-#     45    P30              TP5    DBGP0 / Test sync out
-#     46    DPUP                    USB Pull-up
-#     47    P71                     Touch ring drive output
-#     48    P72                     Touch ring drive output
-#
 
 def setup_func():
     r = Ropper()
@@ -440,7 +364,7 @@ def setup_func():
 
     r.poke(reg_wcon, 0xb0)              # Enabled, wait enabled, charge pump on
     r.set_wclk_freq(125000)             # Carrier frequency
-    r.poke(reg_wsnd, 192)               # Transmit length (3 half-bits)
+    r.poke(reg_wsnd, 8)                 # Transmit length (fraction of a bit)
     r.poke(reg_wrcv, 127)               # Receive length (max)
     r.poke(reg_wwai, 127)               # Repeat delay / ADC conversion time (max)
     r.pokew(reg_wsadr, 0x158)           # Where to transmit (X12)
@@ -452,44 +376,36 @@ def setup_func():
 
     return r
 
-def loop_func():
+def loop_func(precopy):
     r = Ropper()
-
-    # Save last ADC result
-    r.memcpy(ep1_buffer+3, reg_adrlc, 2)
-
-    # Neither the ROP nor the default USB endpoint can keep up
-    # with the full rate; if we delay by a predictable amount,
-    # we can eventually undersample the whole repeating signal
-    r.delay(2.7)
-
-    # Sync this loop to the carrier by IDLE'ing until an
-    # (undocumented?) ISR wakes us up just after the Receive cycle finishes.
-    # All other normal ISRs are disabled in setup.
-    r.poke(reg_pcon, 1)
-
-    # Start the ADC as soon as we can after that interrupt
-    r.poke(reg_adcrc, 0x04)
+    r.ep1_tablet_packet()   # Send results
+    r.poke(reg_wcon, 0xf1)  # Poke charge pump watchdog?
     r.debug_pulse()
+    precopy(r)
 
-    # Send sample and counter over USB
-    r.inc_counter()
-    r.memcpy(ep1_buffer+1, counter_addr, 2)
+    r.memcpy(ep1_buffer+2, reg_adrlc, 2)
+    r.irq_wait()
+    r.adc_start()
+    r.delay(0.1)
 
-    r.ep1_mouse_packet()
+    r.memcpy(ep1_buffer+4, reg_adrlc, 2)
+    r.irq_wait()
+    r.adc_start()
+    r.delay(0.1)
 
-    # Poke charge pump watchdog?
-    r.poke(reg_wcon, 0xf1)
+    r.memcpy(ep1_buffer+6, reg_adrlc, 2)
+    r.irq_wait()
+    r.adc_start()
 
     return r
 
 
-def write_loop(base_addr, setup_code, body_code):
+def write_loop(base_addr, setup_code, body_factory):
     # Make a code fragment that runs repeatedly
-    looper = make_looper(base_addr, setup_code, body_code)
+    looper = make_looper(base_addr, setup_code, body_factory)
     entry = base_addr + len(looper) - 1
     write(base_addr, looper)
     write(stack_base, make_slide(entry).bytes)
 
 if __name__ == '__main__':
-    write_loop(rop_addr, setup_func(), loop_func())
+    write_loop(rop_addr, setup_func(), loop_func)

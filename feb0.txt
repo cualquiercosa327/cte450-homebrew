@@ -1,0 +1,45 @@
+ SFR 0xfeb0:
+     Undocumented hardware starting here, something specfic to the 'W' series
+     LC871 chips, which don't have a public data sheet. Guessing that this is
+     a one-wire interface with some proprietary Sanyo/ONsemi format; I think
+     it's the same one used by the TCB87-TypeC debug interface, but here it's
+     being reused afaict mostly to generate the 750 kHz modulation pulses.
+     Names here were gleaned from data files included with the toolthain.
+
+ 7       6       5       4       3       2       1       0       reg
+ ----------------------------------------------------------------------------
+
+ EN      GO      EWAI    CHGP                    ctrl?   REP     FEB0h_WCON      Control reg
+
+   EN        Peripheral master enable
+   GO        Trigger serial engine
+   EWAI      Enable wait counter
+   CHGP      Enable V- chargepump output on P02 (independent from serial engine?)
+   REP       Repeat transfer
+
+ (init to 00h)                                                   FEB1h_WMOD      Communication mode?
+
+ Divisor, 8-bit. Fclk = Fosc / 2 / (1 + N)                       FEB2h_WCLKG     Clock gen config
+
+ Number of clock cycles to transmit for                          FEB3h_WSND      Send counter, 8-bit
+ Number of clocks to receive/integrate for                       FEB4h_WRCV      Receive counter, 7-bit
+ Wait time between receive and repeated send                     FEB5h_WWAI      Wait counter, 7-bit
+
+ (init to 32h)                                                   FEB6h_WCDLY0    Delay config?
+
+ ack?    flag?   flag?   flag?           mode?           mode?   FEB7h_WCDLY1
+
+ Parallel word to latch out just before send                     FEB8h_WSADRL    Parallel data word
+    Modified in an unknown way during REPEAT transmit            FEB9h_WSADRH
+ Parallel word to latch out just before receive                  FEBAh_WRADRL    Parallel data word
+                                                                 FEBBh_WRADRH
+
+ (init to 00h near gpio setup, FCh near use)                     FEBCh_WPMR0     Pin mapping bits?
+ (init to 00h near gpio setup, 03h near use)                     FEBDh_WPMR1
+ (init to F0h near gpio setup, F1h near use)                     FEBEh_WPMR2
+
+ (unused except by factory test support)                         FEBFh_WPLLC     PLL for higher freq?
+
+ The word-wide ports WSADR and WRADR are both set (sometimes by writing twice,
+ others by copying from WRADR to WSADR after writing WRADR) from model-specific
+ tables of multiplexer control values. Marked in pins.txt as WRS.<bit>
