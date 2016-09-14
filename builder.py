@@ -283,19 +283,20 @@ def make_looper(base_addr, setup_code, body_code):
     # the one used to restore the setup trampoline, and the setup trampoline itself.
     augmented_body_size = 2 * trampoline_size + len(body_code.bytes)
 
-    # Now we can lay out the address space
-    addr_setup_trampoline = base_addr
+    # Now we can lay out the address space. Copy of the loop body overwrites the setup code.
+    addr_augbody_orig = base_addr
+    addr_setup_trampoline = base_addr + augmented_body_size
     addr_setup_code = addr_setup_trampoline + trampoline_size
-    addr_augbody_orig = addr_setup_code + len(setup_code.bytes)
-    addr_augbody_copy = addr_augbody_orig + augmented_body_size
-    body_copy_baseaddr = addr_augbody_copy + 2 * trampoline_size
+    addr_augbody_copy = addr_setup_code
+    addr_body_copy = addr_augbody_copy + 2 * trampoline_size
 
     setup_trampoline = trampoline(addr_augbody_copy, addr_augbody_orig, augmented_body_size)
     restore_trampoline = trampoline(addr_setup_trampoline, addr_augbody_orig, trampoline_size)
 
-    augmented_body = setup_trampoline + restore_trampoline + body_code.link(body_copy_baseaddr)
+    augmented_body = setup_trampoline + restore_trampoline + body_code.link(addr_body_copy)
     assert len(augmented_body) == augmented_body_size
-    return (setup_trampoline + setup_code.link(addr_setup_code) + augmented_body, addr_augbody_orig - 1)
+
+    return augmented_body + setup_trampoline + setup_code.link(addr_setup_code)
 
 
 def feb0_loader_test(r):
@@ -485,7 +486,8 @@ def loop_func():
 
 def write_loop(base_addr, setup_code, body_code):
     # Make a code fragment that runs repeatedly
-    looper, entry = make_looper(base_addr, setup_code, body_code)
+    looper = make_looper(base_addr, setup_code, body_code)
+    entry = base_addr + len(looper) - 1
     write(base_addr, looper)
     write(stack_base, make_slide(entry).bytes)
 
