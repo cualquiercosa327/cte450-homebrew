@@ -224,6 +224,10 @@ class Ropper:
         self.poke(ep1_buffer + 0, 1)
         self.ep1_send(5)
 
+    def ep1_tablet_packet(self):
+        self.poke(ep1_buffer + 0, 2)
+        self.ep1_send(9)
+
     def set_wclk_freq(self, hz):
         n = int(round((fosc / 2.0 / hz) - 1))
         assert n >= 0
@@ -470,7 +474,8 @@ def loop_func():
     # Send sample and counter over USB
     r.inc_counter()
     r.memcpy(ep1_buffer+1, counter_addr, 2)
-    r.ep1_mouse_packet()
+
+    r.ep1_tablet_packet()
 
     # Poke charge pump watchdog?
     r.poke(reg_wcon, 0xf1)

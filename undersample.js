@@ -8,7 +8,7 @@ const dev = new HID.HID(0x56a, 0x17)
 
 var sample_spacing = 3
 var pattern_length = 128;
-var smoothing = 0.6;
+var smoothing = 0.8;
 
 var bins = [];
 
@@ -36,34 +36,21 @@ function median(values) {
 
 function decode_em(bits) {
     // Test signal, repeating 32-bit manchester code
-    // 17007E948F
-    //
-    //   01 01 01 01 01 01 01 01 01
-    //               10 10 10 01 01
-    //               10 01 01 01 01
-    //               10 10 10 10 10
-    //               10 10 10 10 10
-    //               10 01 01 01 01
-    //               01 01 01 10 01
-    //               01 10 10 01 10
-    //               10 01 10 10 01
-    //               01 10 10 10 01
-    //               01 01 01 01 10
-    //               10 01 10 01 10
+    // decode_em('1111111110001101111000000000001111111011001001001100011111001010') == '17007e948f'
 
     // Header
     for (var i = 0; i < 9; i++) {
-        if (!bits[i]) return;
+        if (!(0|bits[i])) return;
     }
 
     // Stop bit
-    if (bits[63]) return;
+    if (0|(bits[63])) return;
 
     // Row parity
     for (var row = 0; row < 10; row++) {
         var p = 0;
         for (var i = 0; i < 5; i++) {
-            p ^= bits[9 + row*5 + i];
+            p ^= 0|(bits[9 + row*5 + i]);
         }
         if (p) return;
     }
@@ -72,7 +59,7 @@ function decode_em(bits) {
     for (var col = 0; col < 4; col++) {
         var p = 0;
         for (var i = 0; i < 11; i++) {
-            p ^= bits[9 + i*5 + col];
+            p ^= 0|(bits[9 + i*5 + col]);
         }
         if (p) return;
     }
@@ -80,10 +67,10 @@ function decode_em(bits) {
     // Hex digits
     var result = [];
     for (var row = 0; row < 10; row++) {
-        var nyb = (bits[9 + row*5 + 0] ? 8 : 0) +
-                  (bits[9 + row*5 + 1] ? 4 : 0) +
-                  (bits[9 + row*5 + 2] ? 2 : 0) +
-                  (bits[9 + row*5 + 3] ? 1 : 0) ;
+        var nyb = (0|(bits[9 + row*5 + 0]) ? 8 : 0) +
+                  (0|(bits[9 + row*5 + 1]) ? 4 : 0) +
+                  (0|(bits[9 + row*5 + 2]) ? 2 : 0) +
+                  (0|(bits[9 + row*5 + 3]) ? 1 : 0) ;
         result.push(nyb.toString(16));
     }
     return result.join('');
@@ -103,15 +90,15 @@ function shift_decode(bits) {
 
 
 dev.on('data', (data) => {
-    if (data.length == 5) {
+    if (data.length >= 5) {
         var adcr = data.readUInt16LE(3) >> 4;
         var counter = data.readUInt16LE(1);
         var bin = (counter * sample_spacing) % pattern_length;
-        bins[bin] = adcr * (1.0 - smoothing) + 0;//(bins[bin] || 0) * smoothing;
+        bins[bin] = adcr * (1.0 - smoothing) + (bins[bin] || 0) * smoothing;
 
         var min = Math.min.apply(null, bins);
         var max = Math.max.apply(null, bins);
-        var middle = median(bins)
+        var middle = median(bins);
         var stats = '[' + Math.round(min) + ',' + Math.round(middle) + ',' + Math.round(max) + ']';
 
         var bits = bins.map( (bin) => (bin >= middle ? 1 : 0) );
