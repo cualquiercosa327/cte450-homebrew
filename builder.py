@@ -391,11 +391,6 @@ def loop_func(precopy):
     r.memcpy(ep1_buffer+4, reg_adrlc, 2)
     r.irq_wait()
     r.adc_start()
-    r.delay(0.1)
-
-    r.memcpy(ep1_buffer+6, reg_adrlc, 2)
-    r.irq_wait()
-    r.adc_start()
 
     return r
 
