@@ -342,9 +342,9 @@ def feb0_loader_test(r):
 #
 # Divisor, 8-bit. Fclk = Fosc / 2 / (1 + N)                       FEB2h_WCLKG     Clock gen config
 #
-# Number of clock cycles to transmit for                          FEB3h_WSND      Send counter
-# Number of clocks to receive/integrate for                       FEB4h_WRCV      Receive counter
-# Wait time between receive and repeated send                     FEB5h_WWAI      Wait counter
+# Number of clock cycles to transmit for                          FEB3h_WSND      Send counter, 8-bit
+# Number of clocks to receive/integrate for                       FEB4h_WRCV      Receive counter, 7-bit
+# Wait time between receive and repeated send                     FEB5h_WWAI      Wait counter, 7-bit
 #
 # (init to 32h)                                                   FEB6h_WCDLY0    Delay config?
 #
@@ -439,7 +439,7 @@ def setup_func():
 
     r.poke(reg_wcon, 0xb0)              # Enabled, wait enabled, charge pump on
     r.set_wclk_freq(125000)             # Carrier frequency
-    r.poke(reg_wsnd, 127)               # Transmit length
+    r.poke(reg_wsnd, 191)               # Transmit length
     r.poke(reg_wrcv, 32)                # Receive length
     r.poke(reg_wwai, 32)                # Repeat delay
     r.pokew(reg_wsadr, 0x158)           # Where to transmit (X12)
@@ -460,7 +460,7 @@ def loop_func():
     # Neither the ROP nor the default USB endpoint can keep up
     # with the full rate; if we delay by a predictable amount,
     # we can eventually undersample the whole repeating signal
-    r.delay(2.5)
+    r.delay(2.7)
 
     # Sync this loop to the carrier by IDLE'ing until an
     # (undocumented?) ISR wakes us up just after the Receive cycle finishes.
@@ -475,7 +475,7 @@ def loop_func():
     r.inc_counter()
     r.memcpy(ep1_buffer+1, counter_addr, 2)
 
-    r.ep1_tablet_packet()
+    r.ep1_mouse_packet()
 
     # Poke charge pump watchdog?
     r.poke(reg_wcon, 0xf1)

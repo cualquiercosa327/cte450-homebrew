@@ -6,37 +6,37 @@ const fs = require('fs');
 const rl = readline.createInterface({input: process.stdin});
 const dev = new HID.HID(0x56a, 0x17)
 
-var sample_spacing = 3
+var sample_spacing = 5*3;
 var pattern_length = 128;
-var smoothing = 0.8;
+var fir_depth = 16;
 
+// Empty FIR filter for each bin where we recover half-bits
 var bins = [];
+var bin_averages = [];
+for (var bin = 0; bin < pattern_length; bin++) {
+    bins.push([]);
+    bin_averages.push(0.0);
+}
 
 rl.on('line', (input) => {
+    // Write device memory
+
     const tokens = input.split(' ');
     const addr = parseInt(tokens[0], 16);
     const data = [0x11];
     for (var i = 1; i <= 16; i++) {
         data[i] = i < tokens.length ? parseInt(tokens[i], 16) : 0;
     }
+    // Set write address
     dev.sendFeatureReport([0x10, addr >> 8, addr & 0xff]);
+    // Write exactly 16 bytes
     dev.sendFeatureReport(data);
 });
-
-function median(values) {
-    values = values.slice(0);
-    values.sort( function(a,b) {return a - b;} );
-    var half = Math.floor(values.length/2);
-    if (values.length % 2) {
-        return values[half];
-    } else {
-        return (values[half-1] + values[half]) / 2.0;
-    }
-}
 
 function decode_em(bits) {
     // Test signal, repeating 32-bit manchester code
     // decode_em('1111111110001101111000000000001111111011001001001100011111001010') == '17007e948f'
+    // decode_em('1111111110000000000000000111110001000111001010010011000000010000') == '0007819960'
 
     // Header
     for (var i = 0; i < 9; i++) {
@@ -76,7 +76,6 @@ function decode_em(bits) {
     return result.join('');
 }
 
-
 function shift_decode(bits) {
     var doubled = bits.concat(bits);
     for (var offset = 0; offset < bits.length; offset++) {
@@ -88,26 +87,33 @@ function shift_decode(bits) {
     }
 }
 
-
 dev.on('data', (data) => {
     if (data.length >= 5) {
         var adcr = data.readUInt16LE(3) >> 4;
         var counter = data.readUInt16LE(1);
-        var bin = (counter * sample_spacing) % pattern_length;
-        bins[bin] = adcr * (1.0 - smoothing) + (bins[bin] || 0) * smoothing;
 
-        var min = Math.min.apply(null, bins);
-        var max = Math.max.apply(null, bins);
-        var middle = median(bins);
-        var stats = '[' + Math.round(min) + ',' + Math.round(middle) + ',' + Math.round(max) + ']';
+        // Current bin in the undersampled waveform
+        var bin_id = (counter * sample_spacing) % pattern_length;
+        var bin = bins[bin_id];
 
-        var bits = bins.map( (bin) => (bin >= middle ? 1 : 0) );
+        // Update simple FIR filter
+        bin.push(adcr);
+        if (bin.length > fir_depth) bin.shift();
+        bin_averages[bin_id] = bin.reduce((a,b) => a+b) / bin.length;
+
+        // Find manchester-encoded bits
+        var bits = [];
+        for (var i = 0; i < pattern_length/2; i++) {
+            var dif = bin_averages[i*2+1] - bin_averages[i*2+0];
+            bits[i] = dif >  2 ? '1' :
+                      dif < -2 ? '0' : 'x';
+        }
         var summary = bits.join('');
 
-        console.log(summary, stats, counter, adcr, shift_decode(bits) || '');
+        console.log(summary, bin.length, counter, adcr, '\t\t', shift_decode(bits) || '-');
 
         if ((counter & 0xff) == 0) {
-            fs.writeFileSync('bins.csv', bins.join('\n'));
+            fs.writeFileSync('bins.csv', bin_averages.join('\n'));
         }
     }
 });
