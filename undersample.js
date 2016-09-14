@@ -6,9 +6,9 @@ const fs = require('fs');
 const rl = readline.createInterface({input: process.stdin});
 const dev = new HID.HID(0x56a, 0x17)
 
-var sample_spacing = 5*3;
+var sample_spacing = 9;
 var pattern_length = 128;
-var fir_depth = 16;
+var fir_depth = 1;
 
 // Empty FIR filter for each bin where we recover half-bits
 var bins = [];
@@ -36,7 +36,10 @@ rl.on('line', (input) => {
 function decode_em(bits) {
     // Test signal, repeating 32-bit manchester code
     // decode_em('1111111110001101111000000000001111111011001001001100011111001010') == '17007e948f'
-    // decode_em('1111111110000000000000000111110001000111001010010011000000010000') == '0007819960'
+    // decode_em('1111111110011001100000000000001111011110101000101101111000100010') == '36007752b8'
+
+    // Manchester encoded 36007752b8:
+    // 01010101010101010110100101101001011010101010101010101010101001010101100101010110011001101010011001011001010101101010011010100110
 
     // Header
     for (var i = 0; i < 9; i++) {
