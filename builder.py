@@ -383,7 +383,7 @@ def setup_func():
 def loop_func(precopy):
     r = Ropper()
 
-    r.memcpy(ep1_buffer+1, reg_adrlc, 2)    # Prior loop's second ADC result
+    r.memcpy(ep1_buffer+4, reg_adrlc, 2)    # Prior loop's second ADC result
     r.irq_wait()                            # Wait for sampling IRQ
     r.adc_start()                           # Sample ASAP after IRQ wakeup
     r.poke(reg_p3, 1)                       # TP5 high
@@ -391,7 +391,7 @@ def loop_func(precopy):
     r.ep1_send(9)                           # Send tablet packet (When is this picked up by the host?)
     precopy(r, 0x30)                        # Balance the time we spend copying in each half
 
-    r.memcpy(ep1_buffer+3, reg_adrlc, 2)    # This loop's first ADC result
+    r.memcpy(ep1_buffer+2, reg_adrlc, 2)    # This loop's first ADC result
     r.irq_wait()                            # Two samples in one packet
     r.adc_start()
     r.poke(reg_p3, 0)                       # TP5 low
