@@ -6,6 +6,9 @@
      being reused afaict mostly to generate the 750 kHz modulation pulses.
      Names here were gleaned from data files included with the toolthain.
 
+Has an interrupt that can fire after the receive ends, when we're ready for the ADC to begin.
+This seems to be vector 0023h
+
  7       6       5       4       3       2       1       0       reg
  ----------------------------------------------------------------------------
 

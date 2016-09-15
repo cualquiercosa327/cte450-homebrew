@@ -19,6 +19,9 @@ timer0_funcptr = 0x39d
 rop_addr = 0x4f0
 counter_addr = 0x38c
 ep1flags = 0x1D
+scanflags = 0x14
+adc_result = 0x3a1
+scan_postadc_callback = 0x39d
 
 # LC87 registers
 reg_pcon = 0xfe07
@@ -207,10 +210,13 @@ class Ropper:
     def get_stuck(self):
         self.le16(infinite_loop)
 
+    def debug_out(self, level):
+        self.poke(reg_p3, level)
+
     def debug_pulse(self, count = 1):
         for i in range(count):
-            self.poke(reg_p3, 0)
-            self.poke(reg_p3, 1)
+            self.debug_out(0)
+            self.debug_out(1)
 
     def ep1_send(self, count):
         self.poke(reg_ep1cnt, count)
@@ -353,7 +359,12 @@ def feb0_loader_test(r):
 def setup_func():
     r = Ropper()
 
+    # Global disable while we're setting up
     r.irq_global_disable()
+
+    # Turn off all IRQs except vector_23 (used by FEB0h peripheral)
+    # We keep using part of that interrupt handler to trigger the ADC
+    # and store its result.
 
     r.irq_disable_timer0()
     r.irq_disable_timer1()
@@ -362,8 +373,13 @@ def setup_func():
     r.le16(pwm1_disable)
     r.poke(reg_usbint, 0)       # USB interrupts off
     r.poke(reg_btcr, 0)         # Base timer & interrupts off
-    r.poke(ep1flags, 0)         # Don't start an ADC cycle in the T0H ISR
 
+    # Stub out the callback that is usually invoked after storing the ADC result
+    r.poke(ep1flags, 1)         # One-shot flag, triggers ADC on next FEB0h interrupt. Retrigger in the FEB0h ADC callback.
+    r.poke(scanflags, 0)        # Make sure we don't disable scanning in the FEB0h ADC callback.
+    r.pokew(scan_postadc_callback, ret)
+
+    # Set up FEB0h peripheral
     r.poke(reg_wcon, 0xb0)              # Enabled, wait enabled, charge pump on
     r.set_wclk_freq(125000)             # Carrier frequency
     r.poke(reg_wsnd, 14)                # Transmit length (fraction of a bit)
@@ -372,9 +388,12 @@ def setup_func():
     r.pokew(reg_wsadr, 0x158)           # Where to transmit (X12)
     r.memcpy(reg_wradr, reg_wsadr, 2)   # Receive at the same spot
 
-    r.poke(reg_wcon, 0xf1)              # Go & repeat
+    # Pre-load packet header
+    r.poke(ep1_buffer + 0, 2)
+    r.poke(reg_ep1cnt, 9)
 
-    r.poke(ep1_buffer + 0, 2)           # Pre-load tablet packet header
+    # Initiate scanning & repeat
+    r.poke(reg_wcon, 0xf1)
 
     r.irq_global_restore()
 
@@ -383,18 +402,23 @@ def setup_func():
 def loop_func(precopy):
     r = Ropper()
 
-    r.memcpy(ep1_buffer+4, reg_adrlc, 2)    # Prior loop's second ADC result
-    r.irq_wait()                            # Wait for sampling IRQ
-    r.adc_start()                           # Sample ASAP after IRQ wakeup
-    r.poke(reg_p3, 1)                       # TP5 high
+    # Send USB packet
+    r.le16(ep1sta_bit3_set)
 
-    r.ep1_send(9)                           # Send tablet packet (When is this picked up by the host?)
-    precopy(r, 0x30)                        # Balance the time we spend copying in each half
+    for bit in range(4):
 
-    r.memcpy(ep1_buffer+2, reg_adrlc, 2)    # This loop's first ADC result
-    r.irq_wait()                            # Two samples in one packet
-    r.adc_start()
-    r.poke(reg_p3, 0)                       # TP5 low
+        # Wait for the FEB0h interrupt, indicating RX completion.
+        # The ISR will start the ADC for us.
+        r.irq_wait()
+        r.debug_out(bit & 1)
+
+        # Store the result after it's ready
+        r.memcpy(ep1_buffer + 1 + bit*2, adc_result, 2)
+
+        # Spread out the loop overhead
+        if bit == 0: precopy(r, 0x18)
+        if bit == 1: precopy(r, 0x20)
+        if bit == 2: precopy(r, 0x30)
 
     return r
 

@@ -57,8 +57,10 @@ function do_sample(adcr) {
 }
 
 dev.on('data', (data) => {
-    if (data.length >= 5) {
-        do_sample(data.readUInt16LE(2) >> 4);
-        do_sample(data.readUInt16LE(4) >> 4);
+    if (data.length == 9) {
+        do_sample(data.readUInt16LE(1));
+        do_sample(data.readUInt16LE(3));
+        do_sample(data.readUInt16LE(5));
+        do_sample(data.readUInt16LE(7));
     }
 });
