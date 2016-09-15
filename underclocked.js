@@ -25,8 +25,8 @@ rl.on('line', (input) => {
 const firCalculator = new Fili.FirCoeffs();
 const firBandpass = new Fili.FirFilter(firCalculator.bandpass({
     order: 128,
-    Fs: 630,
-    F1: 15,
+    Fs: 922,
+    F1: 70,
     F2: 250,
 }));
 
@@ -50,8 +50,10 @@ function do_sample(adcr) {
     const w = Math.max(0, Math.min(middle, Math.abs(Math.round(y * gain))));
     var ticks = y > 0 ? (' '.repeat(middle) + '1'.repeat(w)) :
                         (' '.repeat(middle-w) + '0'.repeat(w));
-//    console.log(0|(y>0), 0|(clk>0.5), phaseErr, clk, clkrate, ticks);
+
     console.log(y);
+    // console.log(ticks);
+    // console.log(0|(y>0), 0|(clk>0.5), phaseErr, clk, clkrate, ticks);
 }
 
 dev.on('data', (data) => {
