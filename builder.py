@@ -64,6 +64,7 @@ adc_shutdown = 0xb89
 memcpy_destR2_srcR3_countR4 = 0x29e0
 feb0_loader = 0xb97
 ep1sta_bit3_set = 0x25e1
+wcon_set_D1h = 0xb82
 incw_counter_popw_r2_r3_r4 = 0x13c8
 r0_to_counter_popw_r2_r3 = 0xe12
 pwm0_disable = 0x2f87
@@ -278,16 +279,15 @@ def make_looper(base_addr, setup_code, body_factory):
     # Executing code destroys it, we have to make copies.
     # This is slow, so we give the loop body an option to do it incrementally.
 
-    def trampoline(dest, src, size):
+    def trampoline(dest, src, code_size, copy_size=None):
         r = Ropper()
-        r.memcpy(dest, src, size)
-        r.jmp(dest + size - 1)
+        r.memcpy(dest, src, copy_size or code_size)
+        r.jmp(dest + code_size - 1)
         return r.bytes
 
     default_margin = 0x50
-    def precopy_placeholder(r, margin=default_margin):
-        if len(r.bytes) >= margin:
-            r.memcpy(0,0,0)
+    def precopy_placeholder(r, n_bytes):
+        r.memcpy(0,0,0)
 
     trampoline_size = len(trampoline(0,0,0))
     body_size = len(body_factory(precopy_placeholder).bytes)
@@ -306,17 +306,21 @@ def make_looper(base_addr, setup_code, body_factory):
     # Generate the actual body code, and keep track of how much precopying we've done.
     # At each precopy opportunity, we can overwrite anything >= what's already executed.
     precopy_len = [0]
-    def precopy_fn(r, margin=default_margin, precopy_len=precopy_len):
-        if len(r.bytes) >= margin:
-            next_precopy_len = len(r.bytes) - margin
-            offset = augmented_body_size - next_precopy_len
-            r.memcpy(addr_augbody_copy + offset, addr_augbody_orig + offset, next_precopy_len - precopy_len[0])
-            precopy_len[0] = next_precopy_len
+    def precopy_fn(r, n_bytes, precopy_len=precopy_len):
+        assert n_bytes > 0
+        next_precopy_len = precopy_len[0] + n_bytes
+        assert next_precopy_len < len(r.bytes)
+        offset = augmented_body_size - next_precopy_len
+        r.memcpy(addr_augbody_copy + offset, addr_augbody_orig + offset, n_bytes)
+        precopy_len[0] = next_precopy_len
     body_code = body_factory(precopy_fn)
 
-    first_setup_trampoline = trampoline(addr_augbody_copy, addr_augbody_orig, augmented_body_size)
-    repeat_setup_trampoline = trampoline(addr_augbody_copy, addr_augbody_orig, augmented_body_size - precopy_len[0])
     restore_trampoline = trampoline(addr_setup_trampoline, addr_augbody_orig, trampoline_size)
+
+    first_setup_trampoline = trampoline(addr_augbody_copy, addr_augbody_orig, augmented_body_size)
+    repeat_setup_trampoline = trampoline(addr_augbody_copy, addr_augbody_orig,
+                                        code_size=augmented_body_size,
+                                        copy_size=augmented_body_size - precopy_len[0])
 
     augmented_body = repeat_setup_trampoline + restore_trampoline + body_code.link(addr_body_copy)
     assert len(augmented_body) == augmented_body_size
@@ -360,8 +364,6 @@ def setup_func():
     r.poke(reg_btcr, 0)         # Base timer & interrupts off
     r.poke(ep1flags, 0)         # Don't start an ADC cycle in the T0H ISR
 
-    r.set_counter(0)
-
     r.poke(reg_wcon, 0xb0)              # Enabled, wait enabled, charge pump on
     r.set_wclk_freq(125000)             # Carrier frequency
     r.poke(reg_wsnd, 14)                # Transmit length (fraction of a bit)
@@ -372,25 +374,27 @@ def setup_func():
 
     r.poke(reg_wcon, 0xf1)              # Go & repeat
 
+    r.poke(ep1_buffer + 0, 2)           # Pre-load tablet packet header
+
     r.irq_global_restore()
 
     return r
 
 def loop_func(precopy):
     r = Ropper()
-    r.ep1_tablet_packet()   # Send results
-    r.poke(reg_wcon, 0xf1)  # Poke charge pump watchdog?
-    r.debug_pulse()
-    precopy(r)
 
-    r.memcpy(ep1_buffer+2, reg_adrlc, 2)
-    r.irq_wait()
-    r.adc_start()
-    r.delay(0.1)
+    r.memcpy(ep1_buffer+1, reg_adrlc, 2)    # Prior loop's second ADC result
+    r.irq_wait()                            # Wait for sampling IRQ
+    r.adc_start()                           # Sample ASAP after IRQ wakeup
+    r.poke(reg_p3, 1)                       # TP5 high
 
-    r.memcpy(ep1_buffer+4, reg_adrlc, 2)
-    r.irq_wait()
+    r.ep1_send(9)                           # Send tablet packet (When is this picked up by the host?)
+    precopy(r, 0x30)                        # Balance the time we spend copying in each half
+
+    r.memcpy(ep1_buffer+3, reg_adrlc, 2)    # This loop's first ADC result
+    r.irq_wait()                            # Two samples in one packet
     r.adc_start()
+    r.poke(reg_p3, 0)                       # TP5 low
 
     return r
 
