@@ -413,7 +413,7 @@ def loop_func(precopy):
         r.debug_out(bit & 1)
 
         # Store the result after it's ready
-        r.memcpy(ep1_buffer + 1 + bit*2, adc_result, 2)
+        r.memcpy(ep1_buffer + 1 + bit*2, reg_adrlc, 2)
 
         # Spread out the loop overhead
         if bit == 0: precopy(r, 0x18)
