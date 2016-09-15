@@ -4,6 +4,8 @@ const HID = require('node-hid');
 const readline = require('readline');
 const fs = require('fs');
 const Fili = require('fili');
+const CircularBuffer = require('circular-buffer');
+
 const rl = readline.createInterface({input: process.stdin});
 const dev = new HID.HID(0x56a, 0x17)
 
@@ -24,37 +26,83 @@ rl.on('line', (input) => {
 
 const firCalculator = new Fili.FirCoeffs();
 const firBandpass = new Fili.FirFilter(firCalculator.bandpass({
-    order: 64,
+    order: 32,
     Fs: 922,
     F1: 10,
-    F2: 360,
+    F2: 190,
 }));
 
-const clkgain = 1e-5;
-var clkrate = 1/9.0;
-var clk = 0;
+const history = new CircularBuffer(512);
 
 function do_sample(adcr) {
+    // history.enq(firBandpass.singleStep(adcr));
 
-    // Input bandpass filter
-    const y = firBandpass.singleStep(adcr);
+    console.log(adcr);
 
-    // Clock recovery PLL
-    clk = (clk + clkrate) % 1.0;
-    var phaseErr = (y > 0) ^ (clk > 0.5);
-    clkrate = Math.max(0.05, Math.min(0.4, clkrate + phaseErr * clkgain));
+    // var decoded = null;
+    // for (var bit_period = 0.9; bit_period < 1.2; bit_period += 0.01) {
+    //     decoded = decoded || try_decode(bit_period);
+    // }
 
-    const width = 200;
-    const middle = width/2;
-    const gain = 4.0;
-    const w = Math.max(0, Math.min(middle, Math.abs(Math.round(y * gain))));
-    var ticks = y > 0 ? (' '.repeat(middle) + '1'.repeat(w)) :
-                        (' '.repeat(middle-w) + '0'.repeat(w));
+    // console.log(history.get(0), decoded);
+}
 
-    // console.log(adcr);
-    console.log(y);
-    // console.log(ticks);
-    // console.log(0|(y>0), 0|(clk>0.5), phaseErr, clk, clkrate, ticks);
+function decode_em(bits) {
+    // Test signal, repeating 32-bit manchester code
+    // decode_em('1111111110001101111000000000001111111011001001001100011111001010') == '17007e948f'
+    // decode_em('1111111110011001100000000000001111011110101000101101111000100010') == '36007752b8'
+
+    // Header
+    for (var i = 0; i < 9; i++) {
+        if (!(0|bits[i])) return;
+    }
+
+    // Stop bit
+    if (0|(bits[63])) return;
+
+    // Row parity
+    for (var row = 0; row < 10; row++) {
+        var p = 0;
+        for (var i = 0; i < 5; i++) {
+            p ^= 0|(bits[9 + row*5 + i]);
+        }
+        if (p) return;
+    }
+
+    // Column parity
+    for (var col = 0; col < 4; col++) {
+        var p = 0;
+        for (var i = 0; i < 11; i++) {
+            p ^= 0|(bits[9 + i*5 + col]);
+        }
+        if (p) return;
+    }
+
+    // Hex digits
+    var result = [];
+    for (var row = 0; row < 10; row++) {
+        var nyb = (0|(bits[9 + row*5 + 0]) ? 8 : 0) +
+                  (0|(bits[9 + row*5 + 1]) ? 4 : 0) +
+                  (0|(bits[9 + row*5 + 2]) ? 2 : 0) +
+                  (0|(bits[9 + row*5 + 3]) ? 1 : 0) ;
+        result.push(nyb.toString(16));
+    }
+    return result.join('');
+}
+
+function try_decode(bit_period) {
+    const bits = []
+    if (history.size() < bit_period * 130) {
+        return;
+    }
+    for (var i = 0; i < 64; i++) {
+        const sample1 = history.get(Math.round(bit_period * (i * 2 + 0)));
+        const sample2 = history.get(Math.round(bit_period * (i * 2 + 1)));
+        bits[i] = 0|(sample2 > sample1);
+    }
+    // console.log(bits.join(''));
+    return bits[0];
+    // return decode_em(bits);
 }
 
 dev.on('data', (data) => {
