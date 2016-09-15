@@ -382,7 +382,7 @@ def setup_func():
     # Set up FEB0h peripheral
     r.poke(reg_wcon, 0xb0)              # Enabled, wait enabled, charge pump on
     r.set_wclk_freq(125000)             # Carrier frequency
-    r.poke(reg_wsnd, 14)                # Transmit length (fraction of a bit)
+    r.poke(reg_wsnd, 16)                # Transmit length (fraction of a bit)
     r.poke(reg_wrcv, 127)               # Receive length (max)
     r.poke(reg_wwai, 127)               # Repeat delay / ADC conversion time (max)
     r.pokew(reg_wsadr, 0x158)           # Where to transmit (X12)
@@ -407,13 +407,14 @@ def loop_func(precopy):
 
     for bit in range(4):
 
+        # Store the previous result
+        r.memcpy(ep1_buffer + 1 + bit*2, reg_adrlc, 2)
+
         # Wait for the FEB0h interrupt, indicating RX completion.
         # The ISR will start the ADC for us.
         r.irq_wait()
-        r.debug_out(bit & 1)
 
-        # Store the result after it's ready
-        r.memcpy(ep1_buffer + 1 + bit*2, reg_adrlc, 2)
+        r.debug_out(bit & 1)
 
         # Spread out the loop overhead
         if bit == 0: precopy(r, 0x18)
