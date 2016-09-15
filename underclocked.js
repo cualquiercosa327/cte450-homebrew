@@ -22,23 +22,36 @@ rl.on('line', (input) => {
     dev.sendFeatureReport(data);
 });
 
-var firCalculator = new Fili.FirCoeffs();
-var firBandpass = new Fili.FirFilter(firCalculator.bandpass({
+const firCalculator = new Fili.FirCoeffs();
+const firBandpass = new Fili.FirFilter(firCalculator.bandpass({
     order: 128,
     Fs: 630,
-    F1: 40,
-    F2: 100,
+    F1: 15,
+    F2: 250,
 }));
 
+const clkgain = 1e-5;
+var clkrate = 1/9.0;
+var clk = 0;
+
 function do_sample(adcr) {
+
+    // Input bandpass filter
     const y = firBandpass.singleStep(adcr);
+
+    // Clock recovery PLL
+    clk = (clk + clkrate) % 1.0;
+    var phaseErr = (y > 0) ^ (clk > 0.5);
+    clkrate = Math.max(0.05, Math.min(0.4, clkrate + phaseErr * clkgain));
+
     const width = 200;
     const middle = width/2;
     const gain = 4.0;
     const w = Math.max(0, Math.min(middle, Math.abs(Math.round(y * gain))));
     var ticks = y > 0 ? (' '.repeat(middle) + '1'.repeat(w)) :
                         (' '.repeat(middle-w) + '0'.repeat(w));
-    console.log(ticks);
+//    console.log(0|(y>0), 0|(clk>0.5), phaseErr, clk, clkrate, ticks);
+    console.log(y);
 }
 
 dev.on('data', (data) => {
