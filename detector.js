@@ -4,28 +4,40 @@ const readline = require('readline');
 const Fili = require('fili');
 const CircularBuffer = require('circular-buffer');
 
-const firCalculator = new Fili.FirCoeffs();
-const firBandpass = new Fili.FirFilter(firCalculator.bandpass({
-    order: 256,
+var iirCalculator = new Fili.CalcCascades();
+
+var highpass = new Fili.IirFilter(iirCalculator.highpass({
+    order: 3,
+    characteristic: 'butterworth',
     Fs: 922,
-    F1: 4,
-    F2: 48,
+    Fc: 0.2
 }));
+
+var lowpass = new Fili.IirFilter(iirCalculator.lowpass({
+    order: 5,
+    characteristic: 'butterworth',
+    Fs: 922,
+    Fc: 70
+}));
+
 
 const history = new CircularBuffer(4096);
 
 const rl = readline.createInterface({input: process.stdin});
 rl.on('line', (input) => {
-    const y = parseInt(input);
+    var y = parseInt(input);
 
-    history.enq(firBandpass.singleStep(y));
+    y = highpass.singleStep(y);
+    y = lowpass.singleStep(y);
+
+    history.enq(y);
 
     var decoded = null;
     // for (var bit_period = 8; bit_period < 10; bit_period += 1/128.0) {
     //     decoded = decoded || try_decode(bit_period);
     // }
 
-    console.log(history.get(0), decoded);
+    console.log(y, decoded);
 });
 
 function decode_em(bits) {
