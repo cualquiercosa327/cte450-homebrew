@@ -253,11 +253,17 @@ class Ropper:
         self.le16(0)
         self.le16(0)
 
-    def irq_global_disable(self):   self.poke(reg_ie, 0)
-    def irq_global_restore(self):   self.poke(reg_ie, 0x8C)
-    def irq_disable_timer0(self):   self.poke(reg_t0cnt, 0)
-    def irq_disable_timer1(self):   self.poke(reg_t1cnt, 0)
-    def irq_disable_adc(self):      self.poke(reg_adcrc, 0)
+    def irq_global_disable(self):       self.poke(reg_ie, 0)
+    def irq_global_restore(self):       self.poke(reg_ie, 0x8C)
+    def irq_disable_timer0(self):       self.poke(reg_t0cnt, 0)
+    def irq_disable_timer1(self):       self.poke(reg_t1cnt, 0)
+    def irq_disable_adc(self):          self.poke(reg_adcrc, 0)
+    def irq_disable_basetimer(self):    self.poke(reg_btcr, 0)
+    def irq_disable_usb(self):          self.poke(reg_usbint, 0)
+
+    def irq_disable_pwm(self):
+        r.le16(pwm0_disable)
+        r.le16(pwm1_disable)
 
     def irq_disable_tablet(self):
         self.irq_global_disable()
@@ -369,10 +375,9 @@ def setup_func():
     r.irq_disable_timer0()
     r.irq_disable_timer1()
     r.irq_disable_adc()
-    r.le16(pwm0_disable)
-    r.le16(pwm1_disable)
-    r.poke(reg_usbint, 0)       # USB interrupts off
-    r.poke(reg_btcr, 0)         # Base timer & interrupts off
+    r.irq_disable_pwm()
+    r.irq_disable_usb()
+    r.irq_disable_basetimer()
 
     # Stub out the callback that is usually invoked after storing the ADC result
     r.poke(ep1flags, 1)         # One-shot flag, triggers ADC on next FEB0h interrupt. Retrigger in the FEB0h ADC callback.
