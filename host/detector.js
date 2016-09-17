@@ -112,10 +112,15 @@ rl.on('line', (input) => {
     if (bit !== null) {
         bits = bits + bit;
         bits = bits.substr(bits.length - 128);
-        manchester = bits.replace(/.(.)/g, '$1');
-        decoded = decode_em(manchester) || decoded;
+
+        // Try every rotation of the buffer
+        const doubled = bits + bits;
+        for (var i = 0; i < 128; i++) {
+            manchester = doubled.substr(i, 128).replace(/.(.)/g, '$1');
+            decoded = decode_em(manchester) || decoded;
+        }
     }
 
-    console.log(manchester, y, pulse_timer, threshold, bit || '.', decoded);
+    console.log(bits, decoded, y, pulse_timer, threshold, bit || '.');
 });
 
