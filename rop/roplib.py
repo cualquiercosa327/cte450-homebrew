@@ -11,10 +11,11 @@ fosc = 12e6
 mainloop_safe_spot = 0x818
 
 # RAM addresses
+factory_temp_ram = 0x100
 ep1_buffer = 0x280
 stack_base = 0x443
 timer0_funcptr = 0x39d
-rop_addr = 0x4f0
+rop_addr = 0x500
 counter_addr = 0x38c
 ep1flags = 0x1D
 scanflags = 0x14
@@ -296,7 +297,7 @@ def make_looper(base_addr, setup_code, body_factory):
         return r.bytes
 
     default_margin = 0x50
-    def precopy_placeholder(r, n_bytes):
+    def precopy_placeholder(r, n_bytes=None):
         r.memcpy(0,0,0)
 
     trampoline_size = len(trampoline(0,0,0))
@@ -316,10 +317,13 @@ def make_looper(base_addr, setup_code, body_factory):
     # Generate the actual body code, and keep track of how much precopying we've done.
     # At each precopy opportunity, we can overwrite anything >= what's already executed.
     precopy_len = [0]
-    def precopy_fn(r, n_bytes, precopy_len=precopy_len):
+    def precopy_fn(r, n_bytes=None, precopy_len=precopy_len):
+        if n_bytes is None:
+            # Max possible
+            n_bytes = len(r.bytes) - precopy_len[0]
         assert n_bytes > 0
         next_precopy_len = precopy_len[0] + n_bytes
-        assert next_precopy_len < len(r.bytes)
+        assert next_precopy_len <= len(r.bytes)
         offset = augmented_body_size - next_precopy_len
         r.memcpy(addr_augbody_copy + offset, addr_augbody_orig + offset, n_bytes)
         precopy_len[0] = next_precopy_len
