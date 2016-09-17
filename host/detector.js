@@ -18,7 +18,7 @@ var lowpass = new Fili.IirFilter(iirCalculator.lowpass({
     order: 2,
     characteristic: 'bessel',
     Fs: 100,
-    Fc: 10.5
+    Fc: 20.0
 }));
 
 function decode_em(bits) {
@@ -70,7 +70,8 @@ var pulse_state = 0;
 var pulse_timer = 0;
 
 // Keep separate pulse width statistics for 0 and 1 bits
-var pulse_widths = [new CircularBuffer(80), new CircularBuffer(80)];
+const width_buffer_size = 256;
+const pulse_widths = [new CircularBuffer(width_buffer_size), new CircularBuffer(width_buffer_size)];
 
 var threshold = 0;
 var manchester = '';
@@ -90,24 +91,22 @@ rl.on('line', (input) => {
     if (y_state == pulse_state) {
         pulse_timer++;
     } else {
-        // Glitch filter
-        if (pulse_timer > 2) {
-            // Zero crossing. Keep pulse width statistics
-            pulse_widths[pulse_state].enq(pulse_timer);
+        // Zero crossing. Keep pulse width statistics
+        pulse_widths[pulse_state].enq(pulse_timer);
 
-            if (pulse_timer < threshold) {
-                // Single bit
-                bit = '' + pulse_state;
-            } else {
-                // Double bit
-                bit = '' + pulse_state + pulse_state;
-            }
+        if (pulse_timer < threshold) {
+            // Single bit
+            bit = '' + pulse_state;
+        } else {
+            // Double bit
+            bit = '' + pulse_state + pulse_state;
         }
+
         pulse_state = y_state;
         pulse_timer = 0;
 
         // Calculate the next threshold we're looking for
-        threshold = stats.percentile(pulse_widths[pulse_state].toarray(), 0.3) * 1.1;
+        threshold = stats.percentile(pulse_widths[pulse_state].toarray(), 0.5) * 1.2;
     }
 
     if (bit !== null) {
@@ -117,6 +116,6 @@ rl.on('line', (input) => {
         decoded = decode_em(manchester) || decoded;
     }
 
-    console.log(manchester, y, pulse_timer, threshold, decoded);
+    console.log(manchester, y, pulse_timer, threshold, bit || '.', decoded);
 });
 
