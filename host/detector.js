@@ -62,7 +62,12 @@ function decode_em(bits) {
                   (0|(bits[9 + row*5 + 3]) ? 1 : 0) ;
         result.push(nyb.toString(16));
     }
-    return result.join('');
+    result = result.join('');
+
+    // Also show latter portion in decimal, to make codes easier to recognize
+    result = result + '-' + parseInt(result.substr(2), 16);
+
+    return result;
 }
 
 var bits = '0'.repeat(128);
