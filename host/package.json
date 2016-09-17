@@ -6,7 +6,8 @@
   "dependencies": {
     "circular-buffer": "^1.0.1",
     "fili": "^1.2.1",
-    "node-hid": "^0.5.1"
+    "node-hid": "^0.5.1",
+    "stats-lite": "^2.0.3"
   },
   "devDependencies": {},
   "scripts": {

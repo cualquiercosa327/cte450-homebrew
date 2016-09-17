@@ -2,6 +2,8 @@
 
 const readline = require('readline');
 const Fili = require('fili');
+const CircularBuffer = require('circular-buffer');
+const stats = require('stats-lite');
 
 var iirCalculator = new Fili.CalcCascades();
 
@@ -23,6 +25,7 @@ function decode_em(bits) {
     // Test signal, repeating 32-bit manchester code
     // decode_em('1111111110001101111000000000001111111011001001001100011111001010') == '17007e948f'
     // decode_em('1111111110011001100000000000001111011110101000101101111000100010') == '36007752b8'
+    // 01010101010101010110100101101001011010101010101010101010101001010101100101010110011001101010011001011001010101101010011010100110
 
     // Header
     for (var i = 0; i < 9; i++) {
@@ -66,9 +69,12 @@ var bits = '0'.repeat(128);
 var pulse_state = 0;
 var pulse_timer = 0;
 
-const threshold = 12;
+// Keep separate pulse width statistics for 0 and 1 bits
+var pulse_widths = [new CircularBuffer(80), new CircularBuffer(80)];
+
+var threshold = 0;
 var manchester = '';
-var decoded = '';
+var decoded = null;
 
 const rl = readline.createInterface({input: process.stdin});
 rl.on('line', (input) => {
@@ -84,24 +90,33 @@ rl.on('line', (input) => {
     if (y_state == pulse_state) {
         pulse_timer++;
     } else {
-        if (pulse_timer < threshold) {
-            // Single bit
-            bit = '' + pulse_state;
-        } else {
-            // Double bit
-            bit = '' + pulse_state + pulse_state;
+        // Glitch filter
+        if (pulse_timer > 2) {
+            // Zero crossing. Keep pulse width statistics
+            pulse_widths[pulse_state].enq(pulse_timer);
+
+            if (pulse_timer < threshold) {
+                // Single bit
+                bit = '' + pulse_state;
+            } else {
+                // Double bit
+                bit = '' + pulse_state + pulse_state;
+            }
         }
         pulse_state = y_state;
         pulse_timer = 0;
+
+        // Calculate the next threshold we're looking for
+        threshold = stats.percentile(pulse_widths[pulse_state].toarray(), 0.3) * 1.1;
     }
 
     if (bit !== null) {
         bits = bits + bit;
         bits = bits.substr(bits.length - 128);
         manchester = bits.replace(/.(.)/g, '$1');
-        decoded = decode_em(manchester);
+        decoded = decode_em(manchester) || decoded;
     }
 
-    console.log(manchester, y, pulse_timer, decoded);
+    console.log(manchester, y, pulse_timer, threshold, decoded);
 });
 
