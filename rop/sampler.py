@@ -10,7 +10,7 @@ def setup_func():
     # Set up FEB0h peripheral
     r.poke(reg_wcon, 0xb0)              # Enabled, wait enabled, charge pump on
     r.set_wclk_freq(125000)             # Carrier frequency
-    r.poke(reg_wsnd, 16)                 # Transmit length (fraction of a bit)
+    r.poke(reg_wsnd, 8)                 # Transmit length (fraction of a bit)
     r.poke(reg_wrcv, 127)               # Receive length (max)
     r.poke(reg_wwai, 127)               # Repeat delay / ADC conversion time (max)
     r.pokew(reg_wsadr, 0x158)           # Where to transmit (X12)
