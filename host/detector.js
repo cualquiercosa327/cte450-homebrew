@@ -62,11 +62,13 @@ function decode_em(bits) {
     return result.join('');
 }
 
-var bits = '0'.repeat(64);
+var bits = '0'.repeat(128);
 var pulse_state = 0;
 var pulse_timer = 0;
 
 const threshold = 12;
+var manchester = '';
+var decoded = '';
 
 const rl = readline.createInterface({input: process.stdin});
 rl.on('line', (input) => {
@@ -78,7 +80,6 @@ rl.on('line', (input) => {
     var y_state = 0|(y > 0);            // Binary threshold
 
     var bit = null;
-    var decoded = '';
 
     if (y_state == pulse_state) {
         pulse_timer++;
@@ -94,16 +95,13 @@ rl.on('line', (input) => {
         pulse_timer = 0;
     }
 
-    var manchester = '';
     if (bit !== null) {
         bits = bits + bit;
         bits = bits.substr(bits.length - 128);
         manchester = bits.replace(/.(.)/g, '$1');
         decoded = decode_em(manchester);
-
-        console.log(manchester, decoded);
     }
 
-    // console.log(y, pulse_timer);
+    console.log(manchester, y, pulse_timer, decoded);
 });
 
