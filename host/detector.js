@@ -2,43 +2,22 @@
 
 const readline = require('readline');
 const Fili = require('fili');
-const CircularBuffer = require('circular-buffer');
 
 var iirCalculator = new Fili.CalcCascades();
 
 var highpass = new Fili.IirFilter(iirCalculator.highpass({
-    order: 3,
-    characteristic: 'butterworth',
-    Fs: 922,
-    Fc: 0.2
+    order: 2,
+    characteristic: 'bessel',
+    Fs: 100,
+    Fc: 0.1
 }));
 
 var lowpass = new Fili.IirFilter(iirCalculator.lowpass({
-    order: 5,
-    characteristic: 'butterworth',
-    Fs: 922,
-    Fc: 70
+    order: 2,
+    characteristic: 'bessel',
+    Fs: 100,
+    Fc: 10.5
 }));
-
-
-const history = new CircularBuffer(4096);
-
-const rl = readline.createInterface({input: process.stdin});
-rl.on('line', (input) => {
-    var y = parseInt(input);
-
-    y = highpass.singleStep(y);
-    y = lowpass.singleStep(y);
-
-    history.enq(y);
-
-    var decoded = null;
-    // for (var bit_period = 8; bit_period < 10; bit_period += 1/128.0) {
-    //     decoded = decoded || try_decode(bit_period);
-    // }
-
-    console.log(y, decoded);
-});
 
 function decode_em(bits) {
     // Test signal, repeating 32-bit manchester code
@@ -83,17 +62,48 @@ function decode_em(bits) {
     return result.join('');
 }
 
-function try_decode(bit_period) {
-    const bits = []
-    if (history.size() < bit_period * 130) {
-        return;
-    }
-    for (var i = 0; i < 64; i++) {
-        const sample1 = history.get(Math.round(bit_period * (i * 2 + 0)));
-        const sample2 = history.get(Math.round(bit_period * (i * 2 + 1)));
-        bits[i] = 0|(sample2 > sample1);
+var bits = '0'.repeat(64);
+var pulse_state = 0;
+var pulse_timer = 0;
+
+const threshold = 12;
+
+const rl = readline.createInterface({input: process.stdin});
+rl.on('line', (input) => {
+    var y = parseInt(input);
+
+    y = Math.pow(y, 0.007) * 1e6;       // Try to correct for extreme nonlinearity
+    y = highpass.singleStep(y);         // Take out DC bias without distorting shape too much
+    y = lowpass.singleStep(y);          // Filter out HF noise, get a nice pulse shape
+    var y_state = 0|(y > 0);            // Binary threshold
+
+    var bit = null;
+    var decoded = '';
+
+    if (y_state == pulse_state) {
+        pulse_timer++;
+    } else {
+        if (pulse_timer < threshold) {
+            // Single bit
+            bit = '' + pulse_state;
+        } else {
+            // Double bit
+            bit = '' + pulse_state + pulse_state;
+        }
+        pulse_state = y_state;
+        pulse_timer = 0;
     }
 
-    // console.log(bits.join(''));
-    return decode_em(bits);
-}
+    var manchester = '';
+    if (bit !== null) {
+        bits = bits + bit;
+        bits = bits.substr(bits.length - 128);
+        manchester = bits.replace(/.(.)/g, '$1');
+        decoded = decode_em(manchester);
+
+        console.log(manchester, decoded);
+    }
+
+    // console.log(y, pulse_timer);
+});
+
