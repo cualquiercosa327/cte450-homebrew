@@ -11,14 +11,14 @@ var highpass = new Fili.IirFilter(iirCalculator.highpass({
     order: 2,
     characteristic: 'bessel',
     Fs: 100,
-    Fc: 0.4
+    Fc: 0.2
 }));
 
 var lowpass = new Fili.IirFilter(iirCalculator.lowpass({
     order: 2,
     characteristic: 'bessel',
     Fs: 100,
-    Fc: 5.0
+    Fc: 12.0
 }));
 
 function decode_em(bits) {
@@ -111,7 +111,7 @@ rl.on('line', (input) => {
         pulse_timer = 0;
 
         // Calculate the next threshold we're looking for
-        threshold = stats.percentile(pulse_widths[pulse_state].toarray(), 0.5) * 1.2;
+        threshold = stats.percentile(pulse_widths[pulse_state].toarray(), 0.4) * 1.5;
     }
 
     if (bit !== null) {
