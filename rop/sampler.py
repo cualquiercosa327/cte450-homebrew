@@ -7,10 +7,19 @@ def setup_func():
 
     r.irq_global_disable()
 
-    # Set up FEB0h peripheral
-    r.poke(reg_wcon, 0xb0)              # Enabled, wait enabled, charge pump on
-    r.set_wclk_freq(125000)             # Carrier frequency
-    r.poke(reg_wsnd, 16)                # Transmit length (device sees less because attenuation)
+    # Set up FEB0h peripheral: Enabled, wait enabled, charge pump on
+    r.poke(reg_wcon, 0xb0)
+
+    # Usually the tablet uses a 750 kHz carrier, but we can reprogram it.
+    r.set_wclk_freq(125000)
+
+    # How long is the transmit burst? The tablet's analog frontend is half-duplex.
+    # This is roughly how many half-cycles of carrier we generate between each
+    # analog measurement. Larger values give a stronger carrier signal, but they
+    # also give us fewer samples per target-visible clock, so the data can come in
+    # too fast for us to sample.
+    r.poke(reg_wsnd, 16)
+
     r.poke(reg_wrcv, 127)               # Receive length (max)
     r.poke(reg_wwai, 127)               # Repeat delay / ADC conversion time (max)
     r.pokew(reg_wsadr, adr_y[0])        # Where to transmit (Y00 has the lowest loss and is on the front side)
