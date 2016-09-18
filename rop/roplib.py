@@ -219,7 +219,6 @@ def make_looper(base_addr, setup_code, body_factory):
         r.jmp(dest + code_size - 1)
         return r.bytes
 
-    default_margin = 0x50
     def precopy_placeholder(r, n_bytes=None):
         r.memcpy(0,0,0)
 

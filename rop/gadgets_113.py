@@ -1,38 +1,49 @@
 # Values here for firmware version 1.13
 
 # This firmware seems common, 3/4 of the tablets I've seen use it.
+# This version seems to come on a Flash part.
+
+# This should be reading from a var we can try writing
+word_addr = 0x3B0
+
+# An okay place to return from the stack smash
+mainloop_safe_spot = 0x80a
 
 # RAM addresses
 factory_temp_ram = 0x100
 ep1_buffer = 0x280
-stack_base = 0x443
-rop_addr = 0x500
+stack_base = 0x434
+timer0_funcptr = 0x3e0
+rop_addr = 0x4f0
 counter_addr = 0x38c
-scan_postadc_callback = 0x39d
+ep1flags = 0x1c
+scanflags = 0x14
 adc_result = 0x3a1
+scan_postadc_callback = 0x39d
 
 # Code gadgets
-ret = 0x244
+ret = 0x2488
 infinite_loop = 0x1ac
-ldw_spl_popw_r0 = 0x26f1
-popw_spl_r0 = 0x7d8
-popw_r0 = 0x2a2c
-popw_r3 = 0xe1b
-popw_r2_r3_r4 = 0x13cb
-copy_codememR3_ramR2_countR4 = 0x2a30
-stw_r3_ep0ack_ld04_popw_r2_r4_r5_r7_r6 = 0x23ec
-st_r1_ep0ackstall_popw_r2 = 0x1e42
-timer0_disable = 0x29ca
-timer0_set_funcR3_timeoutR2 = 0x2983
-adc_shutdown = 0xb89
-memcpy_destR2_srcR3_countR4 = 0x29e0
-feb0_loader = 0xb97
-ep1sta_bit3_set = 0x25e1
-wcon_set_D1h = 0xb82
-incw_counter_popw_r2_r3_r4 = 0x13c8
-r0_to_counter_popw_r2_r3 = 0xe12
-pwm0_disable = 0x2f87
-pwm1_disable = 0x2f11
+ldw_spl_popw_r0 = 0x2479
+popw_spl_r0 = 0x2482
+popw_r0 = 0x2485
+popw_r3 = 0xe08
+popw_r2_r3_r4 = 0x13b0
+copy_codememR3_ramR2_countR4 = 0x277c
+stw_r3_ep0ack_ld04_popw_r2_r4_r5_r7_r6 = 0x2174
+st_r1_ep0ackstall_popw_r2 = 0x1e7a
+timer0_disable = 0x2716
+timer0_set_funcR3_timeoutR2 = 0x26cf
+adc_shutdown = 0xb72
+memcpy_destR2_srcR3_countR4 = 0x272C
+feb0_loader = 0xb80
+ep1sta_bit3_set = 0x2369
+wcon_set_D1h = 0xb6b
+incw_counter_popw_r2_r3_r4 = 0x13ad
+r0_to_counter_popw_r2_r3 = 0xdff
+pwm0_disable = 0x2cbb
+pwm1_disable = 0x2c45
+
 
 # Lookup table for finding arbitrary bytes in code memory
 # missing values: 52

@@ -1,7 +1,8 @@
 # Values here for firmware version 1.16
 
 # I've spent more time analyzing this version so far,
-# but it seems to be relatively rare.
+# but it seems to be relatively rare. Seems to come from
+# a newer Mask ROM production batch.
 
 # This should be reading from a var we can try writing
 word_addr = 0x3ae
@@ -25,7 +26,7 @@ scan_postadc_callback = 0x39d
 ret = 0x244
 infinite_loop = 0x1ac
 ldw_spl_popw_r0 = 0x26f1
-popw_spl_r0 = 0x7d6
+popw_spl_r0 = 0x7d8
 popw_r0 = 0x2a2c
 popw_r3 = 0xe1b
 popw_r2_r3_r4 = 0x13cb
