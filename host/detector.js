@@ -11,14 +11,14 @@ var highpass = new Fili.IirFilter(iirCalculator.highpass({
     order: 2,
     characteristic: 'bessel',
     Fs: 100,
-    Fc: 0.1
+    Fc: 0.4
 }));
 
 var lowpass = new Fili.IirFilter(iirCalculator.lowpass({
     order: 2,
     characteristic: 'bessel',
     Fs: 100,
-    Fc: 20.0
+    Fc: 5.0
 }));
 
 function decode_em(bits) {
