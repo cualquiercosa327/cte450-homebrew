@@ -32,6 +32,52 @@ reg_wpmr1 = 0xfebd
 reg_wpmr2 = 0xfebe
 reg_wpllc = 0xfebf
 
+# Lookup tables of addresses (16-bit mux config words) for X and Y coils
+
+adr_y = [
+    0x0168,     # Y00
+    0x0268,     # Y01
+    0x0068,     # Y02
+    0x0368,     # Y03
+    0x00f0,     # Y04
+    0x01f0,     # Y05
+    0x03f0,     # Y06
+    0x02f0,     # Y07
+    0x0170,     # Y08
+    0x0270,     # Y09
+    0x0070,     # Y10
+    0x0370,     # Y11
+    0x0070,     # Y12
+    0x0370,     # Y13
+    0x0070,     # Y14
+    0x01b8,     # Y15
+    0x00b8,     # Y16
+    0x01b8,     # Y17
+]
+
+adr_x = [
+    0x00b8,     # X00
+    0x01b8,     # X01
+    0x03b8,     # X02
+    0x02b8,     # X03
+    0x0138,     # X04
+    0x0238,     # X05
+    0x0038,     # X06
+    0x0338,     # X07
+    0x00d8,     # X08
+    0x01d8,     # X09
+    0x03d8,     # X10
+    0x02d8,     # X11
+    0x0158,     # X12
+    0x0258,     # X13
+    0x0058,     # X14
+    0x0358,     # X15
+    0x00e8,     # X16
+    0x0358,     # X17
+    0x00e8,     # X18
+    0x0358,     # X19
+]
+
 
 def write_block(addr, bytes):
     print '%04x %s' % (addr, ' '.join(['%02x' % b for b in bytes]))
@@ -49,7 +95,6 @@ class Reloc:
         self.shift = shift
 
     def link(self, base_addr, index):
-        #print "link %d %d %04x %04x" % (self.offset, self.shift, base_addr, index)
         return 0xff & ((self.offset + base_addr + index) >> self.shift)
 
 
