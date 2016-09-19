@@ -12,15 +12,19 @@ This seems to be vector 0023h
  7       6       5       4       3       2       1       0       reg
  ----------------------------------------------------------------------------
 
- EN      GO      EWAI    CHGP                    ctrl?   REP     FEB0h_WCON      Control reg
+ EN      TX              CHGP                    IF      IE      FEB0h_WCON      Control reg
 
-   EN        Peripheral master enable
-   GO        Trigger serial engine
-   EWAI      Enable wait counter
-   CHGP      Enable V- chargepump output on P02 (independent from serial engine?)
-   REP       Repeat transfer
+   EN        Overall enable bit for the whole peripheral
+   TX        Transmit enable
+   CHGP      Charge pump enable, turned off by hardware  at RX start?
+   IF        Interrupt flag
+   IE        Interrupt enable
 
- (init to 00h)                                                   FEB1h_WMOD      Communication mode?
+                                 SLO             DRY     OVL     FEB1h_WMOD      Mode bits
+
+   SLO       Slow / deprioritize the CPU until done with scan
+   DRY       Dry run; timers run, but no I/O happens
+   OVL       Overlap RX and TX, both phases end simultaneously
 
  Divisor, 8-bit. Fclk = Fosc / 2 / (1 + N)                       FEB2h_WCLKG     Clock gen config
 
