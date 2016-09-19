@@ -53,6 +53,7 @@ reg_p2ddr = 0xfe49
 reg_i45cr = 0xfe4a
 reg_i45sl = 0xfe4b
 reg_v = 0x0056
+reg_p3 = 0xfe4c
 reg_p3ddr = 0xfe4d
 reg_p0fcru = 0xfe4f
 reg_adcrc = 0xfe58
