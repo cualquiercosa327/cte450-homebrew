@@ -1,36 +1,17 @@
-# Firmware version still needs to be picked manually.
-from gadgets_113 import *
-#from gadgets_116 import *
+import os
+VERSION = os.getenv('VERSION', '113')
+
+if VERSION == '113':
+    from gadgets_113 import *
+elif VERSION == '116':
+    from gadgets_116 import *
+else:
+    raise ImportError('Unknown firmware version %s' % VERSION)
+
+from lc87_regs import *
 
 # 12 MHz xtal
 fosc = 12e6
-
-# LC87 registers
-reg_pcon = 0xfe07
-reg_ie = 0xfe08
-reg_t0cnt = 0xfe10
-reg_t1cnt = 0xfe18
-reg_p3 = 0xfe4c         # Bit0 = test point TP5
-reg_adcrc = 0xfe58
-reg_adrlc = 0xfe5a
-reg_adrhc = 0xfe5b
-reg_btcr = 0xfe7f
-reg_usbint = 0xfe82
-reg_ep1cnt = 0xfe98
-reg_wcon = 0xfeb0
-reg_wmod = 0xfeb1
-reg_wclkg = 0xfeb2
-reg_wsnd = 0xfeb3
-reg_wrcv = 0xfeb4
-reg_wwai = 0xfeb5
-reg_wcdly0 = 0xfeb6
-reg_wcdly1 = 0xfeb7
-reg_wsadr = 0xfeb8
-reg_wradr = 0xfeba
-reg_wpmr0 = 0xfebc
-reg_wpmr1 = 0xfebd
-reg_wpmr2 = 0xfebe
-reg_wpllc = 0xfebf
 
 # Lookup tables of addresses (16-bit mux config words) for X and Y coils
 

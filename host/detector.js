@@ -10,15 +10,15 @@ var iirCalculator = new Fili.CalcCascades();
 var highpass = new Fili.IirFilter(iirCalculator.highpass({
     order: 2,
     characteristic: 'bessel',
-    Fs: 100,
-    Fc: 0.2
+    Fs: 128,
+    Fc: 8
 }));
 
 var lowpass = new Fili.IirFilter(iirCalculator.lowpass({
     order: 2,
     characteristic: 'bessel',
-    Fs: 100,
-    Fc: 12.0
+    Fs: 128,
+    Fc: 32
 }));
 
 function decode_em(bits) {
