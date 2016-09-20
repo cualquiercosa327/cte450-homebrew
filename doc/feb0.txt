@@ -41,9 +41,9 @@ This seems to be vector 0023h
  Parallel word to latch out just before receive                  FEBAh_WRADRL    Parallel data word
                                                                  FEBBh_WRADRH
 
- (init to 00h near gpio setup, FCh near use)                     FEBCh_WPMR0     Pin mapping bits?
- (init to 00h near gpio setup, 03h near use)                     FEBDh_WPMR1
- (init to F0h near gpio setup, F1h near use)                     FEBEh_WPMR2
+ Relates to WRS6, WRS7, WRS9 (enables)                           FEBCh_WPMR0     Pin enable/mapping
+ Relates to WRS4 (sel bit 1)                                     FEBDh_WPMR1
+ Relates to P01 izero, P02 -Vpmp, P03 dir                        FEBEh_WPMR2
 
  (unused except by factory test support)                         FEBFh_WPLLC     PLL for higher freq?
 
