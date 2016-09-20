@@ -8,17 +8,17 @@ const stats = require('stats-lite');
 var iirCalculator = new Fili.CalcCascades();
 
 var highpass = new Fili.IirFilter(iirCalculator.highpass({
-    order: 2,
+    order: 4,
     characteristic: 'bessel',
     Fs: 128,
-    Fc: 8
+    Fc: 0.5
 }));
 
 var lowpass = new Fili.IirFilter(iirCalculator.lowpass({
-    order: 2,
+    order: 4,
     characteristic: 'bessel',
     Fs: 128,
-    Fc: 32
+    Fc: 8
 }));
 
 function decode_em(bits) {
