@@ -5,18 +5,16 @@ from roplib import *
 def setup_func():
     r = Ropper()
 
+    r.le16(adc_shutdown)
     r.irq_global_disable()
-
-    # Set up FEB0h peripheral: Enabled, wait enabled, charge pump on
-    r.poke(reg_wcon, 0xb0)
 
     # Usually the tablet uses a 750 kHz carrier, but we can reprogram it.
     r.set_wclk_freq(125000)
 
     # Normally these timers control the scanning cycle, but we're using timed delays below instead
-    r.poke(reg_wsnd, 255)               # Transmit length
-    r.poke(reg_wrcv, 127)               # Receive length
-    r.poke(reg_wwai, 127)               # Repeat delay / ADC conversion time
+    r.poke(reg_wsnd, 20)                # Transmit length
+    r.poke(reg_wrcv, 100)               # Receive length
+    r.poke(reg_wwai, 10)                # Repeat delay / ADC conversion time
 
     r.pokew(reg_wsadr, adr_y[0])        # Where to transmit (Y00 has the lowest loss and is on the front side)
     r.memcpy(reg_wradr, reg_wsadr, 2)   # Receive at the same spot
@@ -40,18 +38,19 @@ def loop_func(precopy):
 
     for bit in range(4):
 
-        # A little delay to ensure ADC is ready
         precopy(r)
 
-        r.poke(reg_wcon, 0xd0)     # Transmit / Zero
-        r.delay(0.1)
-        r.poke(reg_wcon, 0xb0)     # Receive / Integrate
-        r.delay(0.2)
+        r.poke(reg_wcdly1, 0x06)   # Reset delay timers
+        r.poke(reg_wcon, 0xd0)     # Begin timed transmit cycle
+        r.delay(0.15)
 
         # Store previous ADC result
         r.memcpy(factory_temp_ram + bit*2, reg_adrlc, 2)
 
         r.adc_start()
+        r.debug_out(bit)
+
+        r.poke(reg_wcon, 0xb0)     # Keep the charge pump running
 
     return r
 
