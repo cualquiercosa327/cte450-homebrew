@@ -7,12 +7,15 @@ const stats = require('stats-lite');
 
 var iirCalculator = new Fili.CalcCascades();
 
-var highpass = new Fili.IirFilter(iirCalculator.highpass({
-    order: 2,
-    characteristic: 'bessel',
-    Fs: 128,
-    Fc: 0.1
-}));
+var highpass = [];
+for (var i = 0; i < 4; i++) {
+    highpass[i] = new Fili.IirFilter(iirCalculator.highpass({
+        order: 2,
+        characteristic: 'bessel',
+        Fs: 128/4,
+        Fc: 0.1
+    }));
+}
 
 var lowpass = new Fili.IirFilter(iirCalculator.lowpass({
     order: 2,
@@ -88,14 +91,16 @@ var pulse_timer = 0;
 var threshold = 0;
 var manchester = '';
 var decoded = null;
+var line_count = 0;
 
 const rl = readline.createInterface({input: process.stdin});
 rl.on('line', (input) => {
     var y = parseInt(input);
+    line_count++;
 
-    y = Math.pow(y, 0.007) * 1e6;       // Try to correct for extreme nonlinearity
-    y = highpass.singleStep(y);         // Take out DC bias without distorting shape too much
-    y = lowpass.singleStep(y);          // Filter out HF noise, get a nice pulse shape
+    y = Math.pow(y, 0.007) * 1e7;       // Try to correct for extreme nonlinearity
+    y = highpass[line_count % 4].singleStep(y);
+    y = lowpass.singleStep(y);
     var y_state = 0|(y > 0);            // Binary threshold
 
     var bit = null;
