@@ -6,13 +6,14 @@ def setup_func():
     r = Ropper()
 
     r.le16(adc_shutdown)
+    r.irq_disable_pwm()
     r.irq_global_disable()
 
     # Usually the tablet uses a 750 kHz carrier, but we can reprogram it.
     r.set_wclk_freq(125000)
 
     # Normally these timers control the scanning cycle, but we're using timed delays below instead
-    r.poke(reg_wsnd, 20)                # Transmit length
+    r.poke(reg_wsnd, 12)                # Transmit length
     r.poke(reg_wrcv, 120)               # Receive length
     r.poke(reg_wwai, 120)               # Repeat delay / ADC conversion time
 

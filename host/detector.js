@@ -8,24 +8,35 @@ const stats = require('stats-lite');
 var iirCalculator = new Fili.CalcCascades();
 
 var highpass = new Fili.IirFilter(iirCalculator.highpass({
-    order: 4,
+    order: 2,
     characteristic: 'bessel',
     Fs: 128,
-    Fc: 0.5
+    Fc: 0.1
 }));
 
 var lowpass = new Fili.IirFilter(iirCalculator.lowpass({
-    order: 4,
+    order: 2,
     characteristic: 'bessel',
     Fs: 128,
-    Fc: 8
+    Fc: 12
 }));
+
+var pulse_width_filter = [];
+var pulse_thresholds = [];
+for (var i = 0; i < 2; i++) {
+    pulse_width_filter[i] = new Fili.IirFilter(iirCalculator.lowpass({
+        order: 2,
+        characteristic: 'bessel',
+        Fs: 128,
+        Fc: 0.5
+    }));
+}
 
 function decode_em(bits) {
     // Test signal, repeating 32-bit manchester code
     // decode_em('1111111110001101111000000000001111111011001001001100011111001010') == '17007e948f'
     // decode_em('1111111110011001100000000000001111011110101000101101111000100010') == '36007752b8'
-    // 01010101010101010110100101101001011010101010101010101010101001010101100101010110011001101010011001011001010101101010011010100110
+    // 0101010101010101011010010110100101101010101010101010101010100101010110010101011001100110101001100101100101010110101001101010011001010101010101010110100101101001011010101010101010101010101001010101100101010110011001101010011001011001010101101010011010100110
 
     // Header
     for (var i = 0; i < 9; i++) {
@@ -74,10 +85,6 @@ var bits = '0'.repeat(128);
 var pulse_state = 0;
 var pulse_timer = 0;
 
-// Keep separate pulse width statistics for 0 and 1 bits
-const width_buffer_size = 256;
-const pulse_widths = [new CircularBuffer(width_buffer_size), new CircularBuffer(width_buffer_size)];
-
 var threshold = 0;
 var manchester = '';
 var decoded = null;
@@ -97,7 +104,9 @@ rl.on('line', (input) => {
         pulse_timer++;
     } else {
         // Zero crossing. Keep pulse width statistics
-        pulse_widths[pulse_state].enq(pulse_timer);
+
+        threshold = pulse_thresholds[pulse_state];
+        var next_threshold = pulse_timer * 1.5;
 
         if (pulse_timer < threshold) {
             // Single bit
@@ -105,13 +114,13 @@ rl.on('line', (input) => {
         } else {
             // Double bit
             bit = '' + pulse_state + pulse_state;
+            next_threshold /= 2;
         }
+
+        pulse_thresholds[pulse_state] = pulse_width_filter[pulse_state].singleStep(pulse_timer);
 
         pulse_state = y_state;
         pulse_timer = 0;
-
-        // Calculate the next threshold we're looking for
-        threshold = stats.percentile(pulse_widths[pulse_state].toarray(), 0.4) * 1.5;
     }
 
     if (bit !== null) {
